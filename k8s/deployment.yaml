@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contract-audit
+  labels:
+    app: contract-audit
+spec:
+  replicas: 2                      # >1 — поэтому rate-limit на Redis (общий лимит)
+  selector:
+    matchLabels:
+      app: contract-audit
+  template:
+    metadata:
+      labels:
+        app: contract-audit
+    spec:
+      containers:
+        - name: contract-audit
+          image: contract-audit:latest    # подставьте тег из CI (registry/contract-audit:<sha>)
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: contract-audit-config
+            - secretRef:
+                name: contract-audit-secrets
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /etc/jwt
+              readOnly: true
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "768Mi"
+            limits:
+              cpu: "1"
+              memory: "1536Mi"
+          # Spring Boot health groups: liveness/readiness (management.endpoint.health.probes.enabled)
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5            # до 150с на старт (Flyway, прогрев)
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: contract-audit-jwt

@@ -1,0 +1,137 @@
+spring:
+  application:
+    name: contract-audit
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/contract_audit}
+    username: ${DB_USER:contract_audit}
+    password: ${DB_PASSWORD:contract_audit}
+
+  jpa:
+    hibernate:
+      # Схемой владеет Flyway. Hibernate ничего не создаёт и не меняет.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  servlet:
+    multipart:
+      # Контракты бывают объёмными — поднимаем лимит загрузки.
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          # Структурированный вывод для Risk Scanner / Compliance Checker.
+          model: gpt-4o
+      embedding:
+        options:
+          model: text-embedding-3-small   # 1536 измерений — совпадает с VECTOR(1536)
+
+# Параметры пайплайна обработки документов (parse → chunk → embed → store).
+processing:
+  chunk-max-chars: 1200      # целевой максимум символов в чанке (пункты не рвём)
+  embed-batch-size: 64       # сколько чанков эмбеддить за один вызов модели
+  stale-after-seconds: 300   # зависший PROCESSING дольше этого → переобработать (после краша)
+  poll-batch-size: 10        # сколько документов поллер забирает за тик
+  poll-interval-ms: 5000     # интервал поллера
+  poller:
+    enabled: true            # драйвер долговечности; в тестах выключаем
+
+# Compliance Checker: сверка договора с политиками компании.
+compliance:
+  relevant-top-k: 3          # сколько пунктов договора брать на политику
+  missing-threshold: 0.6     # дальше этого расстояния пункт нерелевантен; для обязательной
+                             # политики без релевантных пунктов → MISSING_REQUIRED
+
+# OCR для сканов (Tesseract). Цифровые PDF его не задействуют.
+ocr:
+  enabled: true
+  language: ${OCR_LANGUAGE:eng}        # напр. rus+eng при наличии rus.traineddata
+  dpi: 300
+  datapath: ${OCR_TESSDATA_PATH:}      # пусто → Tesseract берёт TESSDATA_PREFIX
+  library-path: ${OCR_LIBRARY_PATH:}   # путь к нативной libtesseract (macOS: /opt/homebrew/lib)
+
+# Прикладные параметры извлечения. См. docs/retrieval-design.md §2, §3, §5.
+retrieval:
+  # Этап 1 (pgvector). over-fetch под реранкер: тянем больше, чем отдадим в LLM.
+  vector:
+    over-fetch: 50            # N кандидатов на этапе 1
+    ef-search: 40             # hnsw.ef_search
+    iterative-scan: relaxed_order
+    max-scan-tuples: 20000    # предохранитель от скана всей таблицы
+  # Этап 2 (реранкер). top-k после пересортировки уходит в LLM.
+  rerank:
+    enabled: true
+    top-k: 10
+    # url задаёт боевой cross-encoder (TEI /rerank, напр. bge-reranker-v2-m3).
+    # Без него используется заглушка distance-sort. НЕ задавайте пустую строку —
+    # любое значение url активирует BgeReranker.
+    # url: ${RERANK_URL:http://localhost:8081}
+
+# Ограничение частоты auth-эндпоинтов (защита от перебора паролей), по IP.
+rate-limit:
+  backend: ${RATE_LIMIT_BACKEND:memory}   # memory (на инстанс) | redis (общий для реплик)
+  auth:
+    capacity: 10            # всплеск
+    refill-per-minute: 10   # установившаяся частота
+
+# Выдача JWT: приложение само подписывает токены (RS256) и само же их проверяет
+# локальным публичным ключом (без внешнего IdP).
+auth:
+  issuer: contract-audit
+  access-token-ttl: 1h
+
+# Из какого claim брать tenant_id (см. TenantContextFilter).
+security:
+  jwt:
+    tenant-claim: tenant_id
+
+storage:
+  blob:
+    type: ${BLOB_STORAGE:db}      # db (Postgres) | s3 (S3/MinIO)
+  s3:
+    endpoint: ${S3_ENDPOINT:}     # для MinIO, напр. http://localhost:9000
+    region: ${S3_REGION:us-east-1}
+    bucket: ${S3_BUCKET:contracts}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    path-style: true              # обязательно для MinIO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true          # /actuator/health/liveness | /readiness для k8s
+  health:
+    redis:
+      enabled: ${REDIS_HEALTH:false}   # не пингуем Redis, если rate-limit.backend=memory
+  metrics:
+    tags:
+      application: contract-audit
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.contractaudit: DEBUG

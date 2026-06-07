@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: contract-audit
+  labels:
+    app: contract-audit
+  annotations:
+    # Лимит размера загрузки под PDF (см. spring.servlet.multipart.max-file-size=25MB)
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: contract-audit.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: contract-audit
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - contract-audit.example.com
+      secretName: contract-audit-tls

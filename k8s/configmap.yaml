@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: contract-audit-config
+  labels:
+    app: contract-audit
+data:
+  # Несекретная конфигурация (env → relaxed binding в application.yml).
+  AUTH_ISSUER: "contract-audit"
+  BLOB_STORAGE: "s3"
+  RATE_LIMIT_BACKEND: "redis"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_HEALTH: "true"
+  S3_ENDPOINT: "http://minio:9000"
+  S3_REGION: "us-east-1"
+  S3_BUCKET: "contracts"
+  # Ключи JWT монтируются из секрета как файлы (см. deployment).
+  AUTH_PRIVATE_KEY: "file:/etc/jwt/private.pem"
+  AUTH_PUBLIC_KEY: "file:/etc/jwt/public.pem"

@@ -1,0 +1,16 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ
+*.iml
+out/
+.idea/workspace.xml
+.idea/shelf/
+
+# Env / secrets
+.env
+*.local
+
+# OS
+.DS_Store
