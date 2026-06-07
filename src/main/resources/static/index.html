@@ -1,122 +1,518 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contract Audit — превью договора</title>
+  <title>Contract Audit — AI-аудит B2B-договоров</title>
+  <meta name="description" content="Загрузите PDF-договор — ИИ извлечёт текст, разобьёт на пункты и найдёт ключевые данные: даты, суммы, риски.">
   <style>
-    :root { --bg:#0f172a; --card:#1e293b; --muted:#94a3b8; --txt:#e2e8f0; --accent:#38bdf8; --line:#334155; }
+    :root {
+      --bg: #0a0e1a;
+      --bg-soft: #0f1525;
+      --surface: #141b2e;
+      --surface-2: #1b2438;
+      --border: #25304a;
+      --border-soft: #1d2740;
+      --txt: #eef2fb;
+      --txt-muted: #93a0bd;
+      --txt-faint: #5e6b87;
+      --accent: #6366f1;
+      --accent-2: #22d3ee;
+      --accent-soft: rgba(99,102,241,.14);
+      --accent-ring: rgba(99,102,241,.4);
+      --success: #34d399;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --grad: linear-gradient(120deg, #6366f1 0%, #22d3ee 100%);
+      --shadow: 0 18px 50px -20px rgba(0,0,0,.7);
+      --radius: 18px;
+    }
+    [data-theme="light"] {
+      --bg: #f6f8fc;
+      --bg-soft: #eef2f9;
+      --surface: #ffffff;
+      --surface-2: #f3f6fc;
+      --border: #e2e8f4;
+      --border-soft: #eaeff8;
+      --txt: #0f172a;
+      --txt-muted: #5a6783;
+      --txt-faint: #93a0bd;
+      --accent-soft: rgba(99,102,241,.09);
+      --shadow: 0 18px 50px -24px rgba(31,45,80,.28);
+    }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-           background: var(--bg); color: var(--txt); line-height:1.5; }
-    .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
-    .drop { border: 2px dashed var(--line); border-radius: 14px; padding: 36px; text-align:center;
-            cursor:pointer; transition: border-color .15s, background .15s; }
-    .drop:hover, .drop.over { border-color: var(--accent); background: rgba(56,189,248,.06); }
-    .drop input { display:none; }
-    .drop b { color: var(--accent); }
-    .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
-    .status { margin: 18px 0; color: var(--muted); font-size: 14px; min-height: 20px; }
-    .card { background: var(--card); border:1px solid var(--line); border-radius: 14px;
-            padding: 18px 20px; margin-top: 16px; }
-    .card h2 { font-size: 15px; margin: 0 0 12px; text-transform: uppercase; letter-spacing:.04em;
-               color: var(--muted); }
-    .stats { display:flex; gap: 24px; flex-wrap: wrap; }
-    .stat b { font-size: 22px; display:block; }
-    .stat span { color: var(--muted); font-size: 13px; }
-    .chips { display:flex; gap:8px; flex-wrap:wrap; }
-    .chip { background: rgba(56,189,248,.12); color: var(--accent); border:1px solid rgba(56,189,248,.3);
-            padding: 4px 10px; border-radius: 999px; font-size: 13px; }
-    .clause { border-left: 3px solid var(--line); padding: 6px 0 6px 14px; margin: 10px 0; }
-    .clause .ref { color: var(--accent); font-weight: 600; font-size: 13px; }
-    .clause .body { white-space: pre-wrap; font-size: 14px; }
-    .empty { color: var(--muted); font-size: 14px; }
-    details summary { cursor:pointer; color: var(--muted); font-size: 14px; }
-    pre.full { white-space: pre-wrap; font-size: 13px; color: #cbd5e1; max-height: 360px; overflow:auto;
-               background: #0b1220; border:1px solid var(--line); border-radius: 10px; padding: 14px; }
-    .err { color: #f87171; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+    /* ambient glow background */
+    body::before {
+      content: "";
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(620px circle at 12% -8%, rgba(99,102,241,.20), transparent 60%),
+        radial-gradient(560px circle at 92% 4%, rgba(34,211,238,.14), transparent 55%);
+    }
+    [data-theme="light"] body::before { opacity: .7; }
+    .shell { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 22px; }
+
+    /* ---------- header ---------- */
+    header {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: saturate(150%) blur(12px);
+      background: color-mix(in srgb, var(--bg) 78%, transparent);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 650; letter-spacing: -.01em; }
+    .logo {
+      width: 34px; height: 34px; border-radius: 10px; background: var(--grad);
+      display: grid; place-items: center; box-shadow: 0 6px 18px -6px var(--accent-ring);
+    }
+    .logo svg { width: 19px; height: 19px; }
+    .brand small { display: block; color: var(--txt-faint); font-size: 11px; font-weight: 500; letter-spacing: .02em; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .ghost-btn {
+      display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px;
+      border: 1px solid var(--border); background: transparent; color: var(--txt-muted);
+      border-radius: 10px; font: inherit; font-size: 14px; cursor: pointer; transition: .16s;
+    }
+    .ghost-btn:hover { color: var(--txt); border-color: var(--accent); background: var(--accent-soft); }
+    .ghost-btn svg { width: 16px; height: 16px; }
+    .icon-btn {
+      width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer;
+      border: 1px solid var(--border); background: transparent; color: var(--txt-muted);
+      border-radius: 10px; transition: .16s;
+    }
+    .icon-btn:hover { color: var(--txt); border-color: var(--accent); }
+    .icon-btn svg { width: 18px; height: 18px; }
+
+    /* ---------- hero ---------- */
+    .hero { padding: 60px 0 18px; text-align: center; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px; margin-bottom: 22px;
+      border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+      font-size: 12.5px; color: var(--txt-muted);
+    }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px rgba(52,211,153,.16); }
+    h1 {
+      font-size: clamp(30px, 5vw, 50px); line-height: 1.06; letter-spacing: -.03em;
+      margin: 0 0 16px; font-weight: 720;
+    }
+    h1 .grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .lede { max-width: 600px; margin: 0 auto; color: var(--txt-muted); font-size: 17px; }
+
+    /* ---------- dropzone ---------- */
+    .upload { margin: 38px auto 0; max-width: 680px; }
+    .drop {
+      position: relative; display: block; cursor: pointer;
+      border: 1.5px dashed var(--border); border-radius: var(--radius);
+      background: var(--surface); padding: 46px 28px; text-align: center;
+      transition: border-color .18s, background .18s, transform .18s, box-shadow .18s;
+    }
+    .drop:hover { border-color: var(--accent); background: color-mix(in srgb, var(--surface) 84%, var(--accent) 16%); }
+    .drop.over { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.012); box-shadow: var(--shadow); }
+    .drop input { display: none; }
+    .drop-ico {
+      width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 16px;
+      background: var(--accent-soft); display: grid; place-items: center; color: var(--accent);
+      transition: transform .25s;
+    }
+    .drop:hover .drop-ico { transform: translateY(-3px); }
+    .drop-ico svg { width: 28px; height: 28px; }
+    .drop-title { font-size: 17px; font-weight: 600; }
+    .drop-title b { color: var(--accent); }
+    .drop-hint { color: var(--txt-faint); font-size: 13.5px; margin-top: 7px; }
+    .trust { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin-top: 16px; color: var(--txt-faint); font-size: 12.5px; }
+    .trust span { display: inline-flex; align-items: center; gap: 6px; }
+    .trust svg { width: 14px; height: 14px; color: var(--success); }
+
+    /* ---------- status / progress ---------- */
+    .status { margin: 22px auto 0; max-width: 680px; min-height: 0; }
+    .loader {
+      display: flex; align-items: center; gap: 13px; padding: 15px 18px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    }
+    .spinner {
+      width: 20px; height: 20px; flex: none; border-radius: 50%;
+      border: 2.4px solid var(--border); border-top-color: var(--accent); animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader .lt { font-size: 14.5px; } .loader .ls { color: var(--txt-faint); font-size: 12.5px; }
+    .banner-err {
+      display: flex; align-items: center; gap: 11px; padding: 14px 17px;
+      background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger);
+      border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); border-radius: 14px; font-size: 14px;
+    }
+    .banner-err svg { width: 18px; height: 18px; flex: none; }
+
+    /* ---------- results ---------- */
+    #result { margin-top: 30px; }
+    .result-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+    .file-tag { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
+    .file-tag .fi { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+    .file-tag .fi svg { width: 18px; height: 18px; }
+    .reset-btn { font: inherit; font-size: 13.5px; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+    .stat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px;
+      transition: transform .16s, border-color .16s;
+    }
+    .stat:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .stat .ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; margin-bottom: 11px; }
+    .stat .ico svg { width: 16px; height: 16px; }
+    .stat b { font-size: 26px; font-weight: 700; letter-spacing: -.02em; display: block; line-height: 1.1; }
+    .stat span { color: var(--txt-muted); font-size: 13px; }
+    .i-blue { background: rgba(99,102,241,.15); color: #818cf8; }
+    .i-cyan { background: rgba(34,211,238,.15); color: var(--accent-2); }
+    .i-amber { background: rgba(251,191,36,.15); color: var(--warn); }
+    .i-green { background: rgba(52,211,153,.15); color: var(--success); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+    .card h2 {
+      font-size: 12px; margin: 0 0 14px; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--txt-faint); font-weight: 650; display: flex; align-items: center; gap: 8px;
+    }
+    .card h2 svg { width: 15px; height: 15px; }
+    .card h2 .count { margin-left: auto; color: var(--txt-muted); background: var(--surface-2); border: 1px solid var(--border); padding: 1px 9px; border-radius: 999px; font-size: 11px; letter-spacing: 0; }
+
+    .chips { display: flex; gap: 9px; flex-wrap: wrap; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 10px;
+      font-size: 13.5px; font-variant-numeric: tabular-nums; border: 1px solid var(--border); background: var(--surface-2);
+    }
+    .chip svg { width: 14px; height: 14px; opacity: .85; }
+    .chip.date { color: #a5b4fc; } .chip.date svg { color: #818cf8; }
+    .chip.amount { color: #67e8f9; } .chip.amount svg { color: var(--accent-2); }
+    .empty { color: var(--txt-faint); font-size: 13.5px; }
+
+    .clause {
+      position: relative; padding: 14px 16px; border-radius: 12px; background: var(--surface-2);
+      border: 1px solid var(--border-soft); margin-bottom: 10px; transition: border-color .16s;
+    }
+    .clause:last-child { margin-bottom: 0; }
+    .clause:hover { border-color: var(--accent); }
+    .clause-top { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+    .ref-badge {
+      font-size: 12px; font-weight: 650; color: var(--accent); background: var(--accent-soft);
+      border: 1px solid var(--accent-ring); padding: 2px 9px; border-radius: 7px; letter-spacing: .01em;
+    }
+    .ref-plain { font-size: 12px; color: var(--txt-faint); }
+    .copy {
+      margin-left: auto; opacity: 0; cursor: pointer; background: transparent; border: 1px solid var(--border);
+      color: var(--txt-muted); border-radius: 8px; width: 28px; height: 28px; display: grid; place-items: center; transition: .15s;
+    }
+    .clause:hover .copy { opacity: 1; }
+    .copy:hover { color: var(--txt); border-color: var(--accent); }
+    .copy svg { width: 14px; height: 14px; }
+    .clause .body { white-space: pre-wrap; font-size: 14.5px; color: var(--txt); }
+
+    details.full { margin-bottom: 14px; }
+    details.full > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 9px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 15px 20px;
+      font-size: 13.5px; color: var(--txt-muted); transition: .16s; user-select: none;
+    }
+    details.full > summary::-webkit-details-marker { display: none; }
+    details.full > summary:hover { color: var(--txt); border-color: var(--accent); }
+    details.full > summary .chev { transition: transform .2s; width: 16px; height: 16px; }
+    details.full[open] > summary { border-radius: 16px 16px 0 0; border-bottom: none; }
+    details.full[open] > summary .chev { transform: rotate(90deg); }
+    pre.full-text {
+      white-space: pre-wrap; word-break: break-word; font: 13px/1.65 "SFMono-Regular", ui-monospace, Menlo, monospace;
+      color: var(--txt-muted); max-height: 420px; overflow: auto; margin: 0;
+      background: var(--surface); border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 16px 16px; padding: 18px 20px;
+    }
+    pre.full-text::-webkit-scrollbar { width: 10px; }
+    pre.full-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 3px solid var(--surface); }
+
+    /* ---------- features ---------- */
+    .features { padding: 56px 0 26px; }
+    .features h3 { text-align: center; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--txt-faint); margin: 0 0 6px; }
+    .features .ft-sub { text-align: center; color: var(--txt-muted); font-size: 18px; margin: 0 0 30px; letter-spacing: -.01em; }
+    .feat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .feat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px 20px;
+      transition: transform .18s, border-color .18s;
+    }
+    .feat:hover { transform: translateY(-3px); border-color: var(--accent); }
+    .feat .fic { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 14px; }
+    .feat .fic svg { width: 21px; height: 21px; }
+    .feat h4 { margin: 0 0 6px; font-size: 15.5px; letter-spacing: -.01em; }
+    .feat p { margin: 0; color: var(--txt-muted); font-size: 13.5px; }
+
+    footer { border-top: 1px solid var(--border-soft); padding: 26px 0 40px; margin-top: 40px; }
+    .foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; color: var(--txt-faint); font-size: 13px; }
+    .foot .stack { display: flex; gap: 8px; flex-wrap: wrap; }
+    .foot .stack code { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 2px 8px; font-size: 11.5px; color: var(--txt-muted); }
+
+    .fade-up { animation: fadeUp .45s cubic-bezier(.2,.7,.3,1) both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+    @media (max-width: 760px) {
+      .stats, .feat-grid { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+      .brand small { display: none; }
+      .hero { padding: 40px 0 8px; }
+    }
+    @media (max-width: 440px) {
+      .stats, .feat-grid { grid-template-columns: 1fr; }
+    }
+    .toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--surface); border: 1px solid var(--accent); color: var(--txt);
+      padding: 10px 16px; border-radius: 11px; font-size: 13.5px; box-shadow: var(--shadow);
+      opacity: 0; pointer-events: none; transition: .25s; z-index: 50; display: flex; align-items: center; gap: 8px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast svg { width: 16px; height: 16px; color: var(--success); }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Contract Audit</h1>
-  <p class="sub">Загрузите PDF-договор — получите извлечённый текст, пункты и ключевые данные (даты, суммы).</p>
+  <header>
+    <div class="shell nav">
+      <div class="brand">
+        <span class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/>
+          </svg>
+        </span>
+        <span>Contract&nbsp;Audit<small>AI-аудит B2B-договоров</small></span>
+      </div>
+      <div class="nav-right">
+        <a class="ghost-btn" href="#features">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          Возможности
+        </a>
+        <button class="icon-btn" id="themeBtn" title="Сменить тему" aria-label="Сменить тему"></button>
+      </div>
+    </div>
+  </header>
 
-  <label class="drop" id="drop">
-    <input type="file" id="file" accept="application/pdf">
-    <div>Перетащите PDF сюда или <b>выберите файл</b></div>
-    <div class="hint">Цифровой PDF или скан (OCR). Анализ идёт без обращения к LLM.</div>
-  </label>
+  <main class="shell">
+    <section class="hero">
+      <span class="pill"><span class="dot"></span> Анализ локально · без обращения к LLM на этом шаге</span>
+      <h1>Аудит договора<br><span class="grad">за секунды, а не за часы</span></h1>
+      <p class="lede">Загрузите PDF — сервис извлечёт текст (включая сканы через OCR), разобьёт его на пункты и выделит ключевые данные: даты и суммы.</p>
 
-  <div class="status" id="status"></div>
-  <div id="result"></div>
-</div>
+      <div class="upload">
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="application/pdf">
+          <div class="drop-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
+            </svg>
+          </div>
+          <div class="drop-title">Перетащите PDF сюда или <b>выберите файл</b></div>
+          <div class="drop-hint">Цифровой PDF или скан · до ~20&nbsp;МБ</div>
+        </label>
+        <div class="trust">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Файл не сохраняется</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Без отправки в LLM</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Мгновенный результат</span>
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+    </section>
+
+    <section id="result"></section>
+
+    <section class="features" id="features">
+      <h3>Платформа</h3>
+      <p class="ft-sub">Четыре ключевые возможности полного сервиса</p>
+      <div class="feat-grid">
+        <div class="feat">
+          <div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5z"/><path d="M12 8v4M12 16h.01"/></svg></div>
+          <h4>AI Risk Scanner</h4>
+          <p>Находит рискованные условия с цитатой и ссылкой на пункт договора.</p>
+        </div>
+        <div class="feat">
+          <div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+          <h4>Compliance Checker</h4>
+          <p>Сверяет договор с политиками компании: противоречия и недостающие пункты.</p>
+        </div>
+        <div class="feat">
+          <div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
+          <h4>Semantic Search</h4>
+          <p>Поиск по смыслу через pgvector + cross-encoder реранкер, а не по словам.</p>
+        </div>
+        <div class="feat">
+          <div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h4>Multi-tenancy</h4>
+          <p>Строгая изоляция арендаторов: tenant_id в каждом запросе, проверено тестами.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell foot">
+      <span>© Contract Audit · демо-превью PDF</span>
+      <span class="stack">
+        <code>Java 21</code><code>Spring Boot 3.4</code><code>Spring AI</code><code>PostgreSQL + pgvector</code><code>Tesseract OCR</code>
+      </span>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Скопировано</span></div>
 
 <script>
-  const drop = document.getElementById('drop');
-  const fileInput = document.getElementById('file');
-  const statusEl = document.getElementById('status');
-  const resultEl = document.getElementById('result');
+  const $ = s => document.querySelector(s);
+  const drop = $('#drop'), fileInput = $('#file'), statusEl = $('#status'), resultEl = $('#result');
 
+  /* ---------- theme ---------- */
+  const sunIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  const moonIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>';
+  const themeBtn = $('#themeBtn');
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    themeBtn.innerHTML = t === 'dark' ? sunIco : moonIco;
+    try { localStorage.setItem('ca-theme', t); } catch (e) {}
+  }
+  (function initTheme() {
+    let saved; try { saved = localStorage.getItem('ca-theme'); } catch (e) {}
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    applyTheme(saved || (prefersLight ? 'light' : 'dark'));
+  })();
+  themeBtn.addEventListener('click', () =>
+    applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+  /* ---------- upload wiring ---------- */
   fileInput.addEventListener('change', () => fileInput.files[0] && upload(fileInput.files[0]));
-  ['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', ev => { const f = ev.dataTransfer.files[0]; if (f) upload(f); });
+  ['dragover', 'dragenter'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'dragend'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', ev => {
+    ev.preventDefault(); drop.classList.remove('over');
+    const f = ev.dataTransfer.files[0]; if (f) upload(f);
+  });
 
   async function upload(file) {
     resultEl.innerHTML = '';
-    statusEl.textContent = `Обрабатываю «${file.name}»…`;
-    statusEl.className = 'status';
+    statusEl.innerHTML =
+      `<div class="loader fade-up"><div class="spinner"></div>
+        <div><div class="lt">Обрабатываю «${esc(file.name)}»…</div>
+        <div class="ls">Извлечение текста · разбивка на пункты · поиск дат и сумм</div></div></div>`;
     const form = new FormData();
     form.append('file', file);
     try {
       const res = await fetch('/api/preview', { method: 'POST', body: form });
-      if (!res.ok) {
-        statusEl.className = 'status err';
-        statusEl.textContent = `Ошибка (${res.status}). Возможно, это не PDF или скан без распознаваемого текста.`;
-        return;
-      }
+      if (!res.ok) return showError(`Не удалось обработать файл (код ${res.status}). Возможно, это не PDF или скан без распознаваемого текста.`);
       render(await res.json());
-      statusEl.textContent = '';
+      statusEl.innerHTML = '';
     } catch (e) {
-      statusEl.className = 'status err';
-      statusEl.textContent = 'Не удалось связаться с сервером.';
+      showError('Не удалось связаться с сервером. Проверьте, что приложение запущено.');
     }
   }
 
-  function esc(s) { return (s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-  function chips(items, empty) {
+  function showError(msg) {
+    statusEl.innerHTML =
+      `<div class="banner-err fade-up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span>${esc(msg)}</span></div>`;
+  }
+
+  /* ---------- helpers ---------- */
+  function esc(s) { return (s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  const fmt = n => (n ?? 0).toLocaleString('ru-RU');
+
+  const calIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+  const coinIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a2.5 2.5 0 0 0-2.5-1.5c-1.5 0-2.5 1-2.5 2s1 1.5 2.5 2 2.5 1 2.5 2-1 2-2.5 2a2.5 2.5 0 0 1-2.5-1.5M12 6v1.5M12 16.5V18"/></svg>';
+
+  function chipRow(items, kind, ico, empty) {
     if (!items || !items.length) return `<div class="empty">${empty}</div>`;
-    return `<div class="chips">${items.map(i => `<span class="chip">${esc(i)}</span>`).join('')}</div>`;
+    return `<div class="chips">${items.map(i => `<span class="chip ${kind}">${ico}${esc(i)}</span>`).join('')}</div>`;
   }
 
   function render(d) {
-    const clauses = (d.clauses || []).map(c => `
+    const dates = d.dates || [], amounts = d.amounts || [], clauses = d.clauses || [];
+
+    const clauseHtml = clauses.length ? clauses.map(c => `
       <div class="clause">
-        ${c.clauseRef ? `<div class="ref">п. ${esc(c.clauseRef)}</div>` : ''}
+        <div class="clause-top">
+          ${c.clauseRef ? `<span class="ref-badge">п. ${esc(c.clauseRef)}</span>` : `<span class="ref-plain">Фрагмент #${c.index + 1}</span>`}
+          <button class="copy" title="Скопировать" data-copy="${esc(c.text)}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
         <div class="body">${esc(c.text)}</div>
-      </div>`).join('') || '<div class="empty">Фрагменты не выделены.</div>';
+      </div>`).join('') : '<div class="empty">Пункты не выделены.</div>';
 
     resultEl.innerHTML = `
-      <div class="card">
-        <h2>${esc(d.filename)}</h2>
-        <div class="stats">
-          <div class="stat"><b>${d.characters.toLocaleString('ru')}</b><span>символов</span></div>
-          <div class="stat"><b>${d.clauseCount}</b><span>фрагментов</span></div>
-          <div class="stat"><b>${(d.dates||[]).length}</b><span>дат</span></div>
-          <div class="stat"><b>${(d.amounts||[]).length}</b><span>сумм</span></div>
+      <div class="fade-up">
+        <div class="result-head">
+          <span class="file-tag">
+            <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+            ${esc(d.filename || 'документ.pdf')}
+          </span>
+          <button class="ghost-btn reset-btn" id="resetBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+            Другой файл
+          </button>
         </div>
-      </div>
-      <div class="card"><h2>Ключевые даты</h2>${chips(d.dates, 'Даты не найдены.')}</div>
-      <div class="card"><h2>Суммы</h2>${chips(d.amounts, 'Суммы не найдены.')}</div>
-      <div class="card"><h2>Пункты договора</h2>${clauses}</div>
-      <div class="card">
-        <details><summary>Показать весь извлечённый текст</summary>
-          <pre class="full">${esc(d.fullText)}</pre>
+
+        <div class="stats">
+          <div class="stat"><div class="ico i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg></div><b>${fmt(d.characters)}</b><span>символов</span></div>
+          <div class="stat"><div class="ico i-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div><b>${fmt(d.clauseCount)}</b><span>пунктов</span></div>
+          <div class="stat"><div class="ico i-amber">${calIco}</div><b>${fmt(dates.length)}</b><span>дат</span></div>
+          <div class="stat"><div class="ico i-green">${coinIco}</div><b>${fmt(amounts.length)}</b><span>сумм</span></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h2>${calIco} Ключевые даты <span class="count">${dates.length}</span></h2>
+            ${chipRow(dates, 'date', calIco, 'Даты не найдены.')}
+          </div>
+          <div class="card">
+            <h2>${coinIco} Суммы <span class="count">${amounts.length}</span></h2>
+            ${chipRow(amounts, 'amount', coinIco, 'Суммы не найдены.')}
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Пункты договора <span class="count">${clauses.length}</span></h2>
+          ${clauseHtml}
+        </div>
+
+        <details class="full">
+          <summary>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            Показать весь извлечённый текст
+          </summary>
+          <pre class="full-text">${esc(d.fullText)}</pre>
         </details>
       </div>`;
+
+    $('#resetBtn').addEventListener('click', () => {
+      resultEl.innerHTML = ''; statusEl.innerHTML = ''; fileInput.value = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    resultEl.querySelectorAll('.copy').forEach(btn =>
+      btn.addEventListener('click', () => copy(btn.getAttribute('data-copy'))));
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- copy + toast ---------- */
+  const toast = $('#toast');
+  function copy(text) {
+    navigator.clipboard?.writeText(text).then(showToast).catch(() => {});
+  }
+  let toastT;
+  function showToast() {
+    toast.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => toast.classList.remove('show'), 1600);
   }
 </script>
 </body>
