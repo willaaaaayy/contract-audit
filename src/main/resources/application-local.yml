@@ -1,0 +1,37 @@
+# =====================================================================================
+# Профиль `local` — полностью self-hosted inference на Ollama (для запуска на своём VDS
+# без облачных ключей). Активация:  --spring.profiles.active=local
+#
+# Поднимает оба провайдера в режиме «ollama»: chat (Risk Scanner / Compliance) и embeddings
+# (пайплайн + семантический поиск + политики). Реранкер не обязателен — без TEI работает
+# фолбэк distance-sort (см. retrieval.rerank в основном конфиге).
+#
+# Размерность: bge-m3 даёт 1024 измерения, а схема — VECTOR(1536) под text-embedding-3-small.
+# PaddingEmbeddingModel дополняет вектор нулями до 1536 (косинус сохраняется в точности),
+# поэтому схему и HNSW-индекс менять не нужно — см. com.contractaudit.ai.LocalAiConfig.
+# =====================================================================================
+spring:
+  ai:
+    model:
+      chat: ollama
+      embedding: ollama
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      # Модели тянем заранее через docker-compose (сервис ollama-init), а не на старте приложения,
+      # чтобы старт не блокировался многогигабайтной загрузкой.
+      init:
+        pull-model-strategy: never
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:qwen2.5:7b-instruct}
+          # Детерминизм для структурированного вывода (строгий JSON рисков/findings).
+          temperature: 0.0
+      embedding:
+        options:
+          model: ${OLLAMA_EMBED_MODEL:bge-m3}
+
+# Целевая размерность вектора в БД. PaddingEmbeddingModel приводит выход локальной модели
+# к этому значению (дополняет нулями). Должна совпадать с VECTOR(N) в миграциях.
+app:
+  embedding:
+    target-dimensions: ${EMBEDDING_TARGET_DIM:1536}

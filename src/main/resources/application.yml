@@ -33,6 +33,21 @@ spring:
       max-request-size: 25MB
 
   ai:
+    # Провайдер по умолчанию — OpenAI. Локальный self-hosted inference (Ollama) включается
+    # профилем `local` (application-local.yml), где эти селекторы переключаются на ollama.
+    # Явный выбор провайдера разводит автоконфигурации openai/ollama — двух бинов ChatModel/
+    # EmbeddingModel одновременно не возникает.
+    model:
+      chat: ${AI_CHAT_PROVIDER:openai}
+      embedding: ${AI_EMBEDDING_PROVIDER:openai}
+      # Сервис использует только chat + embeddings. Остальные типы моделей выключаем, иначе
+      # их автоконфигурации (напр. openAiAudioSpeechModel) требуют ключ и валят старт без него
+      # — а так default-профиль поднимается даже без OPENAI_API_KEY (для публичного превью).
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
     openai:
       api-key: ${OPENAI_API_KEY:}
       chat:

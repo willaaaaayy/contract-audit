@@ -45,6 +45,52 @@ services:
       timeout: 3s
       retries: 10
 
+  # Локальный inference для профиля `local` (self-hosted, без облачных ключей).
+  # GPU необязателен — на CPU работает, но медленнее; для маломощного VDS возьмите
+  # модели полегче (см. ollama-init и README).
+  ollama:
+    image: ollama/ollama:latest
+    container_name: contract-audit-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Раскомментируйте для GPU-ускорения (нужен nvidia-container-toolkit):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # Одноразовый сервис: дожидается Ollama и тянет нужные модели, затем завершается.
+  # Чат-модель и эмбеддер переопределяются переменными OLLAMA_CHAT_MODEL / OLLAMA_EMBED_MODEL.
+  # Для слабого VDS: OLLAMA_CHAT_MODEL=qwen2.5:3b-instruct
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: contract-audit-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen2.5:7b-instruct}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-bge-m3}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Тяну эмбеддер $$OLLAMA_EMBED_MODEL …" && ollama pull "$$OLLAMA_EMBED_MODEL" &&
+        echo "Тяну чат-модель $$OLLAMA_CHAT_MODEL …" && ollama pull "$$OLLAMA_CHAT_MODEL" &&
+        echo "Модели готовы."
+    restart: "no"
+
 volumes:
   pgdata:
   miniodata:
+  ollamadata:

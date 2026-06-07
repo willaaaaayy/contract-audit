@@ -6,7 +6,7 @@
 ## Стек
 
 - **Backend:** Java 21, Spring Boot 3.4
-- **AI:** Spring AI (OpenAI chat + embeddings), cross-encoder реранкер (TEI)
+- **AI:** Spring AI — OpenAI **или** локальный Ollama (chat + embeddings) по профилю; cross-encoder реранкер (TEI, опционально)
 - **Security:** Spring Security + собственная выдача JWT (RS256), мультиарендность, rate limiting
 - **БД:** PostgreSQL + pgvector (метаданные + семантический поиск)
 - **Хранилище blob:** Postgres (по умолчанию) или S3/MinIO
@@ -38,6 +38,49 @@ export JWT_ISSUER_URI=http://localhost:9000   # ваш IdP (Keycloak/Auth0/...)
 # 3. Запустить приложение (Flyway применит миграции на старте)
 ./mvnw spring-boot:run
 ```
+
+## Локальный inference (self-hosted / VDS) — без облачных ключей
+
+Профиль `local` поднимает весь AI на **Ollama** (chat + embeddings), так что сервис
+работает на своём VDS без OpenAI. Реранкер не обязателен — без TEI используется фолбэк
+distance-sort.
+
+```bash
+# 1. Поднять инфраструктуру + Ollama и скачать модели (init-сервис тянет их и завершается)
+docker compose up -d
+docker compose logs -f ollama-init    # дождаться «Модели готовы.»
+
+# 2. Запустить приложение в профиле local (OPENAI_API_KEY не нужен)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+#   либо: SPRING_PROFILES_ACTIVE=local java -jar target/contract-audit-*.jar
+```
+
+Модели по умолчанию (переопределяются env, см. ниже):
+
+| Роль       | Модель                | Размерность | Заметка                                   |
+|------------|-----------------------|-------------|-------------------------------------------|
+| chat       | `qwen2.5:7b-instruct` | —           | сильный русский; для слабого VDS → `:3b`  |
+| embeddings | `bge-m3`              | 1024        | мультиязычный, отлично для русского        |
+
+**Размерность.** Схема — `VECTOR(1536)` (под OpenAI). `bge-m3` даёт 1024, поэтому
+`PaddingEmbeddingModel` дополняет вектор нулями до 1536 — косинусное расстояние при этом
+сохраняется в точности, миграции и HNSW-индекс не трогаем. Если хотите нативные 1024 —
+поменяйте `VECTOR(1536)` в миграциях на чистой БД и задайте `EMBEDDING_TARGET_DIM=1024`.
+
+Переменные окружения профиля `local`:
+
+```
+OLLAMA_BASE_URL      — адрес Ollama (по умолчанию http://localhost:11434)
+OLLAMA_CHAT_MODEL    — чат-модель (по умолчанию qwen2.5:7b-instruct)
+OLLAMA_EMBED_MODEL   — эмбеддер (по умолчанию bge-m3)
+EMBEDDING_TARGET_DIM — целевая размерность под схему (по умолчанию 1536)
+```
+
+Под слабый VDS (CPU, мало RAM): `OLLAMA_CHAT_MODEL=qwen2.5:3b-instruct docker compose up -d`
+и тот же оверрайд при запуске приложения. GPU включается раскомментированием блока `deploy`
+у сервиса `ollama` (нужен nvidia-container-toolkit). Переключение провайдеров — взаимно
+исключающее на одну БД: эмбеддинги разных моделей несравнимы, при смене модели документы
+нужно переобработать.
 
 ## Тесты
 

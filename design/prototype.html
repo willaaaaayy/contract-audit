@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Contract Audit — генеративный UI (прототип)</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --surface:#ffffff; --surface-2:#eef1f5; --border:#e2e6ec;
+    --text:#1a1d23; --muted:#5b6573; --brand:#4f6bed; --accent:#00b3a4;
+    --sev-critical:#e5484d; --sev-high:#f08a24; --sev-medium:#d6a400;
+    --sev-low:#6e7787; --sev-ok:#2bb673;
+    --r1:6px; --r2:10px; --r3:14px; --sh:0 1px 2px rgba(16,22,40,.06),0 4px 16px rgba(16,22,40,.05);
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+  button{font-family:inherit;cursor:pointer}
+  .app{max-width:1280px;margin:0 auto;padding:0 20px 60px}
+
+  /* header */
+  header{display:flex;align-items:center;gap:18px;padding:16px 0 12px;position:sticky;top:0;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);z-index:20}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px}
+  .logo .mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--brand),var(--accent))}
+  nav{display:flex;gap:4px;margin-left:auto;background:var(--surface-2);padding:4px;border-radius:var(--r2)}
+  nav button{border:0;background:transparent;color:var(--muted);padding:7px 14px;border-radius:7px;font-weight:600;font-size:13px}
+  nav button.on{background:var(--surface);color:var(--text);box-shadow:var(--sh)}
+
+  /* context bar */
+  .ctx{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);box-shadow:var(--sh);margin-bottom:18px}
+  .ctx .group{display:flex;flex-direction:column;gap:6px}
+  .ctx label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--border);background:var(--surface);color:var(--muted);padding:6px 11px;border-radius:999px;font-size:12.5px;font-weight:600;transition:.15s}
+  .chip.on{border-color:var(--brand);background:rgba(79,107,237,.08);color:var(--brand)}
+  .chip .t{opacity:.6;font-size:10px;margin-left:5px}
+  .ctx .hint{margin-left:auto;max-width:240px;font-size:12px;color:var(--muted);align-self:center}
+
+  /* audit layout */
+  .audit{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:18px}
+  @media(max-width:980px){.audit{grid-template-columns:1fr}}
+  .col-head{display:flex;align-items:center;gap:10px;margin:2px 2px 10px;font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .col-head .dot{width:6px;height:6px;border-radius:50%;background:var(--brand)}
+
+  .stack{display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);box-shadow:var(--sh);overflow:hidden;animation:rise .35s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .card .ch{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border)}
+  .card .ch h3{margin:0;font-size:14px}
+  .card .ch .badge{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted);background:var(--surface-2);padding:3px 9px;border-radius:999px}
+  .card .cb{padding:14px 16px}
+
+  /* score gauge */
+  .score{display:flex;align-items:center;gap:18px}
+  .gauge{position:relative;width:108px;height:108px;flex:none}
+  .gauge svg{transform:rotate(-90deg)}
+  .gauge .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .num b{font-size:30px;line-height:1}
+  .gauge .num span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .score .verdict{font-size:15px;font-weight:700;margin-bottom:4px}
+  .score .sub{color:var(--muted);font-size:13px}
+  .sevbar{display:flex;height:8px;border-radius:5px;overflow:hidden;margin-top:12px;background:var(--surface-2)}
+  .sevbar i{display:block;height:100%}
+  .seglegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;color:var(--muted)}
+  .seglegend b{color:var(--text)}
+
+  /* risk items */
+  .risk{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin-bottom:9px;transition:.15s}
+  .risk:hover{border-color:var(--brand)}
+  .risk .bar{width:5px;flex:none}
+  .risk .body{padding:11px 13px;flex:1;min-width:0}
+  .risk .top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .risk .type{font-weight:700;font-size:13.5px}
+  .ref{font-family:var(--mono);font-size:11px;background:var(--surface-2);padding:2px 6px;border-radius:5px;color:var(--muted)}
+  .sevtag{font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:5px;color:#fff;text-transform:uppercase}
+  .risk .quote{font-size:12.5px;color:var(--text);border-left:2px solid var(--border);padding-left:9px;margin:6px 0;font-style:italic;opacity:.9}
+  .risk .exp{font-size:12.5px;color:var(--muted)}
+  .risk .act{margin-top:9px;display:flex;gap:8px}
+  .btn{border:1px solid var(--border);background:var(--surface);color:var(--text);padding:6px 12px;border-radius:7px;font-weight:600;font-size:12.5px}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.ok{background:var(--accent);border-color:var(--accent);color:#fff}
+  .risk.collapsed .quote,.risk.collapsed .exp,.risk.collapsed .act{display:none}
+
+  /* key data / compliance */
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px}
+  .kv .k{color:var(--muted)}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:999px;padding:4px 10px;font-size:12px;margin:0 6px 6px 0}
+  .finding{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--border)}
+  .finding:last-child{border-bottom:0}
+  .finding .ico{width:18px;height:18px;flex:none;border-radius:5px;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:800;margin-top:1px}
+
+  /* suggestion */
+  .sugg{background:linear-gradient(180deg,rgba(0,179,164,.07),transparent);border:1px solid rgba(0,179,164,.3);border-radius:var(--r2);padding:12px}
+  .sugg .lbl{font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .sugg .new{font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px}
+
+  /* rail */
+  .rail{display:flex;flex-direction:column;gap:10px}
+  .railcard{background:var(--surface);border:1px dashed var(--border);border-radius:var(--r2);padding:11px 13px;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;font-weight:600}
+  .railcard:hover{border-style:solid;border-color:var(--brand);color:var(--text);cursor:pointer}
+  .railcard .c{margin-left:auto;background:var(--surface-2);border-radius:999px;padding:2px 8px;font-size:11px}
+
+  /* viewer */
+  .viewer{background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column;max-height:760px}
+  .viewer .vh{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+  .viewer .pages{overflow:auto;padding:18px;background:var(--surface-2)}
+  .page{background:#fff;border:1px solid var(--border);border-radius:8px;padding:26px 30px;margin:0 auto 16px;max-width:520px;font-size:12.5px;line-height:1.7;color:#2a2f3a;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  .page h4{margin:0 0 14px;font-size:13px}
+  .clause{padding:3px 6px;border-radius:5px;transition:.2s;scroll-margin:20px}
+  .clause .n{font-family:var(--mono);font-weight:700;margin-right:6px}
+  .clause.hl{background:rgba(229,72,77,.16);box-shadow:0 0 0 2px rgba(229,72,77,.4)}
+
+  /* generic screens */
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  @media(max-width:760px){.grid4{grid-template-columns:repeat(2,1fr)}}
+  .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);box-shadow:var(--sh);padding:15px}
+  .metric .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+  .metric .v{font-size:26px;font-weight:800;margin-top:6px}
+  .metric .d{font-size:12px;color:var(--muted);margin-top:3px}
+  table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;box-shadow:var(--sh)}
+  th,td{text-align:left;padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--surface-2)}
+  tr:last-child td{border-bottom:0}
+  .dl-group{margin-bottom:20px}
+  .dl-group .gh{font-weight:800;font-size:13px;margin-bottom:9px;display:flex;align-items:center;gap:8px}
+  .dl-item{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:var(--r2);padding:12px 14px;margin-bottom:8px;box-shadow:var(--sh)}
+  .dl-item .when{font-weight:800;width:120px;flex:none}
+  .dl-item .ch2{margin-left:auto;display:flex;gap:6px}
+  .muted{color:var(--muted)}
+  .hide{display:none!important}
+  .report-cfg{background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);box-shadow:var(--sh);padding:18px;margin-bottom:18px;display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+  .sheet{background:#fff;border:1px solid var(--border);border-radius:var(--r3);box-shadow:var(--sh);max-width:640px;margin:0 auto;padding:40px;color:#1a1d23}
+  .sheet h2{margin:0 0 4px}
+  .sheet .sub{color:var(--muted);margin-bottom:22px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><span class="mark"></span> Contract&nbsp;Audit</div>
+    <nav id="nav">
+      <button data-tab="audit" class="on">Аудит</button>
+      <button data-tab="dash">Дашборд</button>
+      <button data-tab="deadlines">Дедлайны</button>
+      <button data-tab="report">Отчёт</button>
+    </nav>
+  </header>
+
+  <!-- CONTEXT BAR -->
+  <div class="ctx">
+    <div class="group">
+      <label>Документ</label>
+      <div class="chips" id="docChips"></div>
+    </div>
+    <div class="group">
+      <label>Роль</label>
+      <div class="chips" id="roleChips"></div>
+    </div>
+    <div class="group">
+      <label>Состояние</label>
+      <div class="chips" id="stateChips"></div>
+    </div>
+    <div class="hint" id="ctxHint"></div>
+  </div>
+
+  <div id="screen"></div>
+</div>
+
+<script>
+/* ---------- mock data: реальная форма из бэкенда ---------- */
+const ROLES = {
+  lawyer:   {label:"Юрист",       defAction:"Предложить правку"},
+  buyer:    {label:"Закупщик",    defAction:"В карточку сделки"},
+  approver: {label:"Согласующий", defAction:"Согласовать"},
+  viewer:   {label:"Чтение",      defAction:null},
+};
+const TYPES = {supply:"Поставка", rent:"Аренда", nda:"NDA", sla:"SLA"};
+
+const DOCS = {
+  supply:{
+    id:"supply", filename:"Договор поставки №А-2024/17", type:"supply",
+    counterparty:"ООО «Стальпром»", score:34, jurisdiction:"РФ, г. Москва",
+    risks:[
+      {type:"Штрафная санкция", severity:"CRITICAL", clauseRef:"7.2",
+       quote:"…неустойка в размере 1% от суммы договора за каждый день просрочки без верхнего предела.",
+       exp:"Неустойка без потолка — при долгой просрочке сумма может превысить стоимость поставки."},
+      {type:"Авто-пролонгация", severity:"HIGH", clauseRef:"11.4",
+       quote:"…договор автоматически продлевается на один год, если ни одна из сторон не уведомит за 90 дней.",
+       exp:"Длинное окно уведомления (90 дней) легко пропустить — риск нежелательного продления."},
+      {type:"Односторонний отказ", severity:"HIGH", clauseRef:"9.1",
+       quote:"Поставщик вправе в одностороннем порядке отказаться от исполнения, уведомив за 5 дней.",
+       exp:"Асимметрия: право на односторонний отказ есть только у поставщика."},
+      {type:"Срок оплаты", severity:"MEDIUM", clauseRef:"4.3",
+       quote:"Оплата производится в течение 5 (пяти) банковских дней с даты выставления счёта.",
+       exp:"5 дней — короче рыночных 14; повышает кассовый риск."},
+      {type:"Применимое право", severity:"LOW", clauseRef:"12.1",
+       quote:"Споры разрешаются в Арбитражном суде г. Москвы.",
+       exp:"Стандартная оговорка, существенного риска нет."},
+    ],
+    compliance:[
+      {findingType:"MISSING_REQUIRED", severity:"HIGH", policy:"Конфиденциальность (обязательна)",
+       exp:"Обязательная политика не отражена в договоре — нет раздела о конфиденциальности."},
+      {findingType:"CONTRADICTION", severity:"MEDIUM", policy:"Срок оплаты ≥ 14 дней", clauseRef:"4.3",
+       quote:"…в течение 5 (пяти) банковских дней…", exp:"Противоречит внутренней политике сроков оплаты."},
+    ],
+    keyData:{
+      dates:[{label:"Окончание договора", date:"2026-08-15", kind:"end"},
+             {label:"Авто-пролонгация (дедлайн уведомления)", date:"2026-05-17", kind:"renew"},
+             {label:"Срок оплаты по счёту №112", date:"2026-06-12", kind:"pay"}],
+      amounts:["4 800 000 ₽","1% / день","250 000 ₽"],
+      parties:["ООО «Стальпром» (поставщик)","ООО «Ваша компания» (покупатель)"],
+    }
+  },
+  nda:{
+    id:"nda", filename:"NDA с ООО «Технопарк»", type:"nda",
+    counterparty:"ООО «Технопарк»", score:82, jurisdiction:"РФ",
+    risks:[
+      {type:"Срок конфиденциальности", severity:"MEDIUM", clauseRef:"3.1",
+       quote:"Обязательства сохраняются в течение 3 (трёх) лет после прекращения договора.",
+       exp:"3 года — короче, чем принято для технологических секретов (обычно 5)."},
+      {type:"Территория", severity:"LOW", clauseRef:"5.2",
+       quote:"Действие соглашения не ограничено территориально.",
+       exp:"Широкая, но допустимая формулировка."},
+    ],
+    compliance:[
+      {findingType:"CONTRADICTION", severity:"LOW", policy:"Срок NDA ≥ 5 лет", clauseRef:"3.1",
+       quote:"…в течение 3 (трёх) лет…", exp:"Короче рекомендованного политикой срока."},
+    ],
+    keyData:{
+      dates:[{label:"Окончание срока конфиденциальности", date:"2029-03-01", kind:"end"}],
+      amounts:["Неустойка 500 000 ₽"],
+      parties:["ООО «Технопарк»","ООО «Ваша компания»"],
+    }
+  },
+  rent:{
+    id:"rent", filename:"Договор аренды офиса", type:"rent",
+    counterparty:"АО «Бизнес-Центр Нева»", score:58, jurisdiction:"РФ, г. СПб",
+    risks:[
+      {type:"Индексация ставки", severity:"HIGH", clauseRef:"5.4",
+       quote:"Арендодатель вправе ежегодно повышать ставку на величину инфляции без согласования.",
+       exp:"Безусловное право на индексацию — расходы непредсказуемы."},
+      {type:"Обеспечительный платёж", severity:"MEDIUM", clauseRef:"6.1",
+       quote:"Обеспечительный платёж в размере 3 (трёх) месячных арендных плат.",
+       exp:"Крупный платёж, удерживается до конца аренды."},
+      {type:"Досрочное расторжение", severity:"MEDIUM", clauseRef:"8.3",
+       quote:"При досрочном расторжении арендатором обеспечительный платёж не возвращается.",
+       exp:"Потеря обеспечения при выходе — высокий порог гибкости."},
+    ],
+    compliance:[],
+    keyData:{
+      dates:[{label:"Окончание аренды", date:"2027-01-31", kind:"end"},
+             {label:"Ежемесячная оплата", date:"2026-06-10", kind:"pay"}],
+      amounts:["320 000 ₽ / мес","960 000 ₽ обеспечение"],
+      parties:["АО «Бизнес-Центр Нева» (арендодатель)","ООО «Ваша компания» (арендатор)"],
+    }
+  },
+  sla:{
+    id:"sla", filename:"SLA облачного провайдера", type:"sla",
+    counterparty:"CloudHost LLC", score:71, jurisdiction:"Ireland",
+    risks:[
+      {type:"Уровень доступности", severity:"HIGH", clauseRef:"2.1",
+       quote:"Гарантированная доступность сервиса — 99.0% в месяц.",
+       exp:"99.0% = до 7.2 ч простоя/мес; ниже отраслевых 99.9%."},
+      {type:"Компенсация", severity:"MEDIUM", clauseRef:"4.2",
+       quote:"Максимальная компенсация — 10% месячной платы.",
+       exp:"Потолок компенсации не покрывает реальные убытки от простоя."},
+      {type:"Ограничение ответственности", severity:"LOW", clauseRef:"9.5",
+       quote:"Ответственность ограничена суммой платежей за 3 месяца.",
+       exp:"Стандартно для SaaS."},
+    ],
+    compliance:[
+      {findingType:"MISSING_REQUIRED", severity:"MEDIUM", policy:"Хранение данных в РФ (обязательна)",
+       exp:"Нет гарантии локализации данных — юрисдикция Ireland."},
+    ],
+    keyData:{
+      dates:[{label:"Окончание подписки", date:"2026-12-31", kind:"end"},
+             {label:"Авто-продление", date:"2026-11-30", kind:"renew"}],
+      amounts:["$2 400 / мес","99.0% SLA"],
+      parties:["CloudHost LLC","ООО «Ваша компания»"],
+    }
+  },
+};
+
+/* профильные чек-листы по типу — какие сущности важны */
+const CHECKLIST = {
+  supply:["Сроки и порядок оплаты","Штрафы и неустойка","Условия поставки","Авто-пролонгация","Гарантии качества"],
+  rent:  ["Размер и индексация ставки","Обеспечительный платёж","Условия расторжения","Ремонт и улучшения","Срок аренды"],
+  nda:   ["Срок конфиденциальности","Определение конфид. информации","Территория действия","Ответственность за разглашение","Возврат/уничтожение данных"],
+  sla:   ["Уровень доступности (uptime)","Компенсации и штрафы","Время реакции поддержки","Локализация данных","Условия расторжения"],
+};
+
+const SEV = {CRITICAL:"--sev-critical",HIGH:"--sev-high",MEDIUM:"--sev-medium",LOW:"--sev-low"};
+const SEV_RU = {CRITICAL:"Критич.",HIGH:"Высокий",MEDIUM:"Средний",LOW:"Низкий"};
+const SEV_ORDER = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3};
+const cssv = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------- state ---------- */
+const state = {tab:"audit", doc:"supply", role:"lawyer", docState:"DONE"};
+
+/* ---------- context bar ---------- */
+function chip(text, on, onclick, tag){
+  return `<button class="chip ${on?'on':''}" data-x>${text}${tag?`<span class="t">${tag}</span>`:''}</button>`;
+}
+function renderCtx(){
+  const dc = document.getElementById('docChips');
+  dc.innerHTML = Object.values(DOCS).map(d=>
+    `<button class="chip ${state.doc===d.id?'on':''}" data-doc="${d.id}">${TYPES[d.type]}<span class="t">${d.score}</span></button>`).join('');
+  document.getElementById('roleChips').innerHTML = Object.entries(ROLES).map(([k,v])=>
+    `<button class="chip ${state.role===k?'on':''}" data-role="${k}">${v.label}</button>`).join('');
+  document.getElementById('stateChips').innerHTML = ['DONE','PROCESSING'].map(s=>
+    `<button class="chip ${state.docState===s?'on':''}" data-state="${s}">${s==='DONE'?'Готово':'Обработка'}</button>`).join('');
+  const d = DOCS[state.doc];
+  document.getElementById('ctxHint').textContent =
+    `Layout пересобран под: ${TYPES[d.type]} · риск ${d.score}/100 · роль «${ROLES[state.role].label}». Порядок и состав блоков вычислены движком.`;
+}
+document.querySelector('.ctx').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.doc) state.doc=b.dataset.doc;
+  if(b.dataset.role) state.role=b.dataset.role;
+  if(b.dataset.state) state.docState=b.dataset.state;
+  renderCtx(); render();
+});
+document.getElementById('nav').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  state.tab=b.dataset.tab;
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+  render();
+});
+
+/* ---------- LAYOUT ENGINE ----------
+   weight = base(role) * relevance(type) * urgency(riskProfile, deadlines) */
+function severityScore(risks){ // 0..1, вес критичности
+  if(!risks.length) return 0;
+  const w={CRITICAL:1,HIGH:.7,MEDIUM:.4,LOW:.15};
+  return Math.min(1, risks.reduce((s,r)=>s+w[r.severity],0)/risks.length);
+}
+function nearestDeadlineDays(doc){
+  const today=new Date('2026-06-07');
+  let min=Infinity;
+  doc.keyData.dates.forEach(d=>{const diff=(new Date(d.date)-today)/864e5; if(diff>=0) min=Math.min(min,diff);});
+  return min;
+}
+function computeBlocks(doc){
+  const sev = severityScore(doc.risks);
+  const dlDays = nearestDeadlineDays(doc);
+  const dlUrgent = dlDays<=60;
+  const role = state.role;
+
+  // base priority by role
+  const base = {
+    score:        {lawyer:.7, buyer:.6, approver:.9, viewer:.6},
+    risks:        {lawyer:1,  buyer:.7, approver:.8, viewer:.7},
+    compliance:   {lawyer:.85,buyer:.5, approver:.7, viewer:.5},
+    suggestions:  {lawyer:.9, buyer:.2, approver:.3, viewer:0},
+    keydata:      {lawyer:.5, buyer:.85,approver:.55,viewer:.6},
+    deadlines:    {lawyer:.5, buyer:.8, approver:.5, viewer:.6},
+    checklist:    {lawyer:.6, buyer:.65,approver:.4, viewer:.5},
+  };
+  const blocks=[
+    {id:"score",      w: base.score[role]      + sev*0.4},
+    {id:"risks",      w: base.risks[role]      + sev*0.6},
+    {id:"compliance", w: base.compliance[role] + (doc.compliance.length?0.4:-0.5)},
+    {id:"suggestions",w: base.suggestions[role]+ (role==='lawyer'&&sev>.4?0.5:-0.4)},
+    {id:"keydata",    w: base.keydata[role]    + (doc.type==='nda'?0.4:0.1)},
+    {id:"deadlines",  w: base.deadlines[role]  + (dlUrgent?0.5:-0.2)},
+    {id:"checklist",  w: base.checklist[role]},
+  ].filter(b=>b.w>0);
+  blocks.sort((a,b)=>b.w-a.w);
+  // верхняя половина (по весу) — раскрыта; остальное — в rail
+  const med = blocks[Math.floor(blocks.length/2)].w;
+  blocks.forEach(b=>b.expanded = b.w>=med);
+  return blocks;
+}
+
+/* ---------- block renderers ---------- */
+function gauge(score){
+  const c=cssv(score<40?'--sev-critical':score<60?'--sev-high':score<80?'--sev-medium':'--sev-ok');
+  const r=46,circ=2*Math.PI*r,off=circ*(1-score/100);
+  return `<div class="gauge">
+    <svg width="108" height="108" viewBox="0 0 108 108">
+      <circle cx="54" cy="54" r="${r}" fill="none" stroke="${cssv('--surface-2')}" stroke-width="9"/>
+      <circle cx="54" cy="54" r="${r}" fill="none" stroke="${c}" stroke-width="9" stroke-linecap="round"
+        stroke-dasharray="${circ}" stroke-dashoffset="${off}"/>
+    </svg>
+    <div class="num"><b style="color:${c}">${score}</b><span>из 100</span></div></div>`;
+}
+function blockScore(doc){
+  const dist={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0}; doc.risks.forEach(r=>dist[r.severity]++);
+  const total=doc.risks.length||1;
+  const seg=Object.entries(dist).filter(([,n])=>n).map(([s,n])=>`<i style="background:${cssv(SEV[s])};width:${n/total*100}%"></i>`).join('');
+  const verdict = doc.score<40?"Эскалировать — критические риски":doc.score<60?"Требует внимания юриста":doc.score<80?"Приемлемо с правками":"Можно согласовывать";
+  const legend=Object.entries(dist).filter(([,n])=>n).map(([s,n])=>`<span><b style="color:${cssv(SEV[s])}">${n}</b> ${SEV_RU[s]}</span>`).join('');
+  return card("Скоринг договора", `${doc.risks.length} рисков`, `
+    <div class="score">${gauge(doc.score)}
+      <div style="flex:1">
+        <div class="verdict">${verdict}</div>
+        <div class="sub">${TYPES[doc.type]} · ${doc.counterparty}</div>
+        <div class="sevbar">${seg}</div>
+        <div class="seglegend">${legend}</div>
+      </div></div>`);
+}
+function riskItem(r,i,expanded){
+  const c=cssv(SEV[r.severity]);
+  const action = ROLES[state.role].defAction && r.severity!=='LOW'
+    ? `<div class="act"><button class="btn primary" onclick="event.stopPropagation()">${state.role==='lawyer'?'Предложить формулировку':ROLES[state.role].defAction}</button>
+       <button class="btn" onclick="event.stopPropagation()">Подтвердить риск</button></div>` : '';
+  return `<div class="risk ${expanded?'':'collapsed'}" data-ref="${r.clauseRef}" onclick="highlight('${r.clauseRef}')">
+    <div class="bar" style="background:${c}"></div>
+    <div class="body">
+      <div class="top"><span class="sevtag" style="background:${c}">${SEV_RU[r.severity]}</span>
+        <span class="type">${r.type}</span><span class="ref">п. ${r.clauseRef}</span></div>
+      <div class="quote">«${r.quote}»</div>
+      <div class="exp">${r.exp}</div>${action}</div></div>`;
+}
+function blockRisks(doc){
+  const risks=[...doc.risks].sort((a,b)=>SEV_ORDER[a.severity]-SEV_ORDER[b.severity]);
+  // высокий риск → первые 2 раскрыты, остальные свёрнуты; низкий → все свёрнуты кроме первого
+  const open = doc.score<60?2:1;
+  const body = risks.map((r,i)=>riskItem(r,i,i<open)).join('');
+  return card("Найденные риски","клик → пункт в PDF", body);
+}
+function blockCompliance(doc){
+  if(!doc.compliance.length) return card("Сверка с политиками","✓","<div class='muted'>Противоречий политикам компании не найдено.</div>");
+  const body=doc.compliance.map(f=>{
+    const c=cssv(SEV[f.severity]);
+    const isMiss=f.findingType==='MISSING_REQUIRED';
+    return `<div class="finding"><div class="ico" style="background:${c}">${isMiss?'!':'≠'}</div>
+      <div><b>${isMiss?'Отсутствует обязательная политика':'Противоречие политике'}</b> — ${f.policy}
+      ${f.clauseRef?`<span class="ref">п. ${f.clauseRef}</span>`:''}
+      <div class="muted" style="margin-top:3px">${f.exp}</div></div></div>`;
+  }).join('');
+  return card("Сверка с политиками",`${doc.compliance.length} замечаний`, body);
+}
+function blockSuggestions(doc){
+  const top=[...doc.risks].sort((a,b)=>SEV_ORDER[a.severity]-SEV_ORDER[b.severity])[0];
+  return card("Переговорные рекомендации","ИИ",`
+    <div class="sugg"><div class="lbl">Контр-формулировка к п. ${top.clauseRef}</div>
+      <div>Текущая редакция создаёт риск: ${top.exp.toLowerCase()}</div>
+      <div class="new">Предлагаемая правка: «${suggestText(top)}»</div>
+      <div class="act"><button class="btn ok">Вставить как track change</button>
+        <button class="btn">Скопировать</button></div></div>`);
+}
+function suggestText(r){
+  const map={
+    "7.2":"…неустойка 0,1% от суммы за каждый день просрочки, но не более 10% суммы договора.",
+    "11.4":"…договор продлевается только при письменном согласии обеих сторон; уведомление за 30 дней.",
+    "9.1":"…право на односторонний отказ принадлежит обеим сторонам при существенном нарушении.",
+    "3.1":"Обязательства сохраняются в течение 5 (пяти) лет после прекращения договора.",
+    "5.4":"…индексация ставки не чаще раза в год и не выше 5%, по письменному согласованию.",
+    "2.1":"Гарантированная доступность сервиса — не менее 99.9% в месяц.",
+  };
+  return map[r.clauseRef] || "…сбалансированная формулировка, устраняющая выявленный риск.";
+}
+function blockKeyData(doc){
+  const parties=doc.keyData.parties.map(p=>`<span class="pill">${p}</span>`).join('');
+  const amounts=doc.keyData.amounts.map(a=>`<span class="pill">${a}</span>`).join('');
+  return card("Ключевые данные","извлечено",`
+    <div class="kv">
+      <div class="k">Стороны</div><div>${parties}</div>
+      <div class="k">Суммы</div><div>${amounts}</div>
+      <div class="k">Юрисдикция</div><div>${doc.jurisdiction}</div>
+    </div>`);
+}
+function blockDeadlines(doc){
+  const today=new Date('2026-06-07');
+  const rows=doc.keyData.dates.map(d=>{
+    const days=Math.round((new Date(d.date)-today)/864e5);
+    const c = days<0?'--sev-critical':days<=14?'--sev-high':days<=30?'--sev-medium':'--sev-low';
+    return `<div class="finding"><div class="ico" style="background:${cssv(c)}">●</div>
+      <div><b>${d.label}</b> — ${d.date}
+      <div class="muted">${days<0?`просрочено ${-days} дн.`:`через ${days} дн.`}</div></div></div>`;
+  }).join('');
+  return card("Дедлайны договора","напоминания", rows);
+}
+function blockChecklist(doc){
+  const items=CHECKLIST[doc.type].map(x=>`<span class="pill">✓ ${x}</span>`).join('');
+  return card(`Чек-лист: ${TYPES[doc.type]}`,"профильный",`<div style="line-height:2">${items}</div>`);
+}
+function card(title,badge,body){
+  return `<div class="card"><div class="ch"><h3>${title}</h3><span class="badge">${badge}</span></div><div class="cb">${body}</div></div>`;
+}
+const RENDERERS={score:blockScore,risks:blockRisks,compliance:blockCompliance,suggestions:blockSuggestions,
+  keydata:blockKeyData,deadlines:blockDeadlines,checklist:blockChecklist};
+const RAIL_LABEL={score:"Скоринг",risks:"Риски",compliance:"Сверка с политиками",suggestions:"Рекомендации",
+  keydata:"Ключевые данные",deadlines:"Дедлайны",checklist:"Чек-лист"};
+
+/* ---------- viewer (PDF с подсветкой) ---------- */
+function viewer(doc){
+  const refs=[...new Set(doc.risks.map(r=>r.clauseRef).concat((doc.compliance||[]).map(c=>c.clauseRef).filter(Boolean)))];
+  const clauses = refs.sort().map(ref=>{
+    const r=doc.risks.find(x=>x.clauseRef===ref);
+    const txt = r? r.quote : "…условие договора…";
+    return `<div class="clause" id="cl-${ref}"><span class="n">${ref}</span>${txt}</div>`;
+  }).join('<br>');
+  return `<div class="viewer"><div class="vh">📄 ${doc.filename} · стр. 3 из 14 · клик по риску подсвечивает пункт</div>
+    <div class="pages"><div class="page"><h4>${doc.filename}</h4>${clauses}</div></div></div>`;
+}
+window.highlight=function(ref){
+  document.querySelectorAll('.clause.hl').forEach(e=>e.classList.remove('hl'));
+  const el=document.getElementById('cl-'+ref);
+  if(el){el.classList.add('hl'); el.scrollIntoView({behavior:'smooth',block:'center'});}
+};
+
+/* ---------- screens ---------- */
+function renderAudit(){
+  const doc=DOCS[state.doc];
+  if(state.docState==='PROCESSING'){
+    return `<div class="audit"><div><div class="col-head"><span class="dot"></span>Сборка анализа…</div>
+      <div class="stack">${[1,2,3].map(()=>`<div class="card"><div class="cb" style="height:90px;background:linear-gradient(90deg,var(--surface-2),var(--bg),var(--surface-2));background-size:200% 100%;animation:sh 1.2s infinite"></div></div>`).join('')}</div></div>
+      ${viewer(doc)}</div><style>@keyframes sh{to{background-position:-200% 0}}</style>`;
+  }
+  const blocks=computeBlocks(doc);
+  const expanded=blocks.filter(b=>b.expanded);
+  const railed=blocks.filter(b=>!b.expanded);
+  const left=`<div class="col-head"><span class="dot"></span>Приоритетные блоки · собрано движком</div>
+    <div class="stack">${expanded.map(b=>RENDERERS[b.id](doc)).join('')}</div>
+    ${railed.length?`<div class="col-head" style="margin-top:16px">Ещё · свёрнуто</div>
+      <div class="rail">${railed.map(b=>`<div class="railcard" onclick="expandRail('${b.id}')">＋ ${RAIL_LABEL[b.id]}<span class="c">${Math.round(b.w*100)/100}</span></div>`).join('')}</div>`:''}`;
+  return `<div class="audit"><div>${left}</div>${viewer(doc)}</div>`;
+}
+window.expandRail=function(id){
+  const doc=DOCS[state.doc];
+  const stack=document.querySelector('.stack');
+  const wrap=document.createElement('div'); wrap.innerHTML=RENDERERS[id](doc);
+  stack.appendChild(wrap.firstChild);
+  event.target.closest('.railcard').remove();
+};
+
+function renderDash(){
+  const docs=Object.values(DOCS);
+  const totalObl=docs.length, high=docs.filter(d=>d.score<60).length;
+  const byRole = state.role==='lawyer'?"Моя очередь — назначенные и эскалированные":"Портфель — агрегаты по компании";
+  const metrics=[
+    ["Активных договоров", docs.length, "в работе"],
+    ["Средний скоринг", Math.round(docs.reduce((s,d)=>s+d.score,0)/docs.length), "0–100"],
+    ["Требуют внимания", high, "скоринг < 60"],
+    ["Дедлайнов в 30 дн.", 3, "оплата, пролонгация"],
+  ].map(([l,v,d])=>`<div class="metric"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
+  const rows=docs.map(d=>{
+    const c=cssv(d.score<40?'--sev-critical':d.score<60?'--sev-high':d.score<80?'--sev-medium':'--sev-ok');
+    return `<tr><td><b>${d.filename}</b><div class="muted">${d.counterparty}</div></td>
+      <td>${TYPES[d.type]}</td>
+      <td><span style="color:${c};font-weight:800">${d.score}</span></td>
+      <td>${d.risks.length}</td>
+      <td><span class="pill">${d.keyData.dates[0]?.date||'—'}</span></td></tr>`;
+  }).join('');
+  return `<div class="col-head"><span class="dot"></span>${byRole}</div>
+    <div class="grid4">${metrics}</div>
+    <table><thead><tr><th>Договор</th><th>Тип</th><th>Скоринг</th><th>Рисков</th><th>Ближайшая дата</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderDeadlines(){
+  const today=new Date('2026-06-07');
+  const all=[];
+  Object.values(DOCS).forEach(d=>d.keyData.dates.forEach(dt=>all.push({...dt,doc:d.filename,days:Math.round((new Date(dt.date)-today)/864e5)})));
+  all.sort((a,b)=>a.days-b.days);
+  const groups=[["Просрочено / 7 дней",x=>x.days<=7],["Ближайшие 30 дней",x=>x.days>7&&x.days<=30],["Позже",x=>x.days>30]];
+  return groups.map(([title,f])=>{
+    const items=all.filter(f); if(!items.length) return '';
+    return `<div class="dl-group"><div class="gh">${title} <span class="muted">· ${items.length}</span></div>
+      ${items.map(x=>{
+        const c=x.days<0?'--sev-critical':x.days<=14?'--sev-high':x.days<=30?'--sev-medium':'--sev-low';
+        return `<div class="dl-item" style="border-left-color:${cssv(c)}">
+          <div class="when">${x.days<0?`−${-x.days} дн.`:`${x.days} дн.`}</div>
+          <div><b>${x.label}</b> · ${x.date}<div class="muted">${x.doc}</div></div>
+          <div class="ch2"><button class="btn">✉ Почта</button><button class="btn">Slack</button></div></div>`;
+      }).join('')}</div>`;
+  }).join('');
+}
+
+function renderReport(){
+  const doc=DOCS[state.doc];
+  const c=cssv(doc.score<40?'--sev-critical':doc.score<60?'--sev-high':doc.score<80?'--sev-medium':'--sev-ok');
+  const rows=[...doc.risks].sort((a,b)=>SEV_ORDER[a.severity]-SEV_ORDER[b.severity]).map(r=>
+    `<tr><td><span class="sevtag" style="background:${cssv(SEV[r.severity])}">${SEV_RU[r.severity]}</span></td>
+     <td>${r.type}</td><td><span class="ref">${r.clauseRef}</span></td><td>${r.exp}</td></tr>`).join('');
+  return `<div class="report-cfg">
+      <div class="l" style="font-weight:800">Конфигуратор экспорта:</div>
+      <label class="toggle"><input type="checkbox" checked> Риски</label>
+      <label class="toggle"><input type="checkbox" checked> Сверка с политиками</label>
+      <label class="toggle"><input type="checkbox" checked> Ключевые даты</label>
+      <label class="toggle"><input type="checkbox"> Обезличить</label>
+      <button class="btn primary" style="margin-left:auto">Скачать PDF</button>
+      <button class="btn">DOCX (track changes)</button>
+      <button class="btn">XLSX</button>
+    </div>
+    <div class="sheet">
+      <h2>Отчёт об аудите договора</h2>
+      <div class="sub">${doc.filename} · ${doc.counterparty} · ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="score" style="margin-bottom:24px">${gauge(doc.score)}
+        <div><div class="verdict" style="color:${c}">${doc.score<60?'Высокий риск':'Приемлемо'}</div>
+        <div class="sub">Найдено ${doc.risks.length} рисков, ${doc.compliance.length} замечаний по политикам</div></div></div>
+      <h4 style="margin:0 0 8px">Реестр рисков</h4>
+      <table><thead><tr><th>Уровень</th><th>Тип</th><th>Пункт</th><th>Объяснение</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+function render(){
+  const showCtx = state.tab!=='deadlines';
+  document.querySelector('.ctx').classList.toggle('hide', false);
+  const s=document.getElementById('screen');
+  if(state.tab==='audit') s.innerHTML=renderAudit();
+  else if(state.tab==='dash') s.innerHTML=renderDash();
+  else if(state.tab==='deadlines') s.innerHTML=renderDeadlines();
+  else if(state.tab==='report') s.innerHTML=renderReport();
+}
+
+renderCtx(); render();
+</script>
+</body>
+</html>
