@@ -25,19 +25,27 @@ class ContractChunkerTest {
     }
 
     @Test
-    void keepsSmallClausesTogetherWithoutSplitting() {
-        // Два коротких абзаца одного раздела влезают в один чанк (120 символов).
-        String text = """
-                5.1 Короткий пункт.
-
-                5.2 Тоже короткий.
-                """;
+    void splitsAdjacentClauses_evenWithoutBlankLine() {
+        // Пункты разделены обычным переносом (как в реальных PDF) — должны стать отдельными чанками.
+        String text = "5.1 Короткий пункт.\n5.2 Тоже короткий.";
 
         List<TextChunk> chunks = chunker.chunk(text);
 
-        assertThat(chunks).hasSize(1);
-        assertThat(chunks.get(0).clauseRef()).isEqualTo("5.1");
-        assertThat(chunks.get(0).text()).contains("5.1").contains("5.2");
+        assertThat(chunks).hasSize(2);
+        assertThat(chunks).extracting(TextChunk::clauseRef).containsExactly("5.1", "5.2");
+    }
+
+    @Test
+    void keepsClauseContinuationLinesTogether() {
+        // Строка-продолжение без номера остаётся в том же пункте.
+        String text = "7.1 Поставщик несёт ответственность\nза качество товара.\n7.2 Заказчик оплачивает доставку.";
+
+        List<TextChunk> chunks = chunker.chunk(text);
+
+        assertThat(chunks).hasSize(2);
+        assertThat(chunks.get(0).clauseRef()).isEqualTo("7.1");
+        assertThat(chunks.get(0).text()).contains("за качество товара");
+        assertThat(chunks.get(1).clauseRef()).isEqualTo("7.2");
     }
 
     @Test
