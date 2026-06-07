@@ -26,6 +26,9 @@ spring:
           model: ${OLLAMA_CHAT_MODEL:qwen2.5:7b-instruct}
           # Детерминизм для структурированного вывода (строгий JSON рисков/findings).
           temperature: 0.0
+          # JSON-режим Ollama: модель отдаёт чистый JSON без markdown-обёрток (```json …```),
+          # иначе BeanOutputConverter падает на бэктиках. Критично для локальных моделей.
+          format: json
       embedding:
         options:
           model: ${OLLAMA_EMBED_MODEL:bge-m3}
