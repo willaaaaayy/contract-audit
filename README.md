@@ -154,6 +154,8 @@ management.endpoints.web.exposure     — health, info, prometheus, metrics
 ## API (сводка)
 
 ```
+GET  /                              — браузерная демо-страница: загрузка PDF → текст/пункты/даты/суммы
+POST /api/preview                   — превью PDF без авторизации и без LLM (extract → chunk → даты/суммы)
 POST /api/auth/register             — регистрация компании + admin, выдаёт JWT
 POST /api/auth/login                — вход (slug + email + пароль), выдаёт JWT
 POST /api/documents                 — загрузка PDF (202, async-обработка)

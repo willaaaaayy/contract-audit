@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Audit — превью договора</title>
+  <style>
+    :root { --bg:#0f172a; --card:#1e293b; --muted:#94a3b8; --txt:#e2e8f0; --accent:#38bdf8; --line:#334155; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           background: var(--bg); color: var(--txt); line-height:1.5; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+    .drop { border: 2px dashed var(--line); border-radius: 14px; padding: 36px; text-align:center;
+            cursor:pointer; transition: border-color .15s, background .15s; }
+    .drop:hover, .drop.over { border-color: var(--accent); background: rgba(56,189,248,.06); }
+    .drop input { display:none; }
+    .drop b { color: var(--accent); }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    .status { margin: 18px 0; color: var(--muted); font-size: 14px; min-height: 20px; }
+    .card { background: var(--card); border:1px solid var(--line); border-radius: 14px;
+            padding: 18px 20px; margin-top: 16px; }
+    .card h2 { font-size: 15px; margin: 0 0 12px; text-transform: uppercase; letter-spacing:.04em;
+               color: var(--muted); }
+    .stats { display:flex; gap: 24px; flex-wrap: wrap; }
+    .stat b { font-size: 22px; display:block; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .chip { background: rgba(56,189,248,.12); color: var(--accent); border:1px solid rgba(56,189,248,.3);
+            padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+    .clause { border-left: 3px solid var(--line); padding: 6px 0 6px 14px; margin: 10px 0; }
+    .clause .ref { color: var(--accent); font-weight: 600; font-size: 13px; }
+    .clause .body { white-space: pre-wrap; font-size: 14px; }
+    .empty { color: var(--muted); font-size: 14px; }
+    details summary { cursor:pointer; color: var(--muted); font-size: 14px; }
+    pre.full { white-space: pre-wrap; font-size: 13px; color: #cbd5e1; max-height: 360px; overflow:auto;
+               background: #0b1220; border:1px solid var(--line); border-radius: 10px; padding: 14px; }
+    .err { color: #f87171; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Contract Audit</h1>
+  <p class="sub">Загрузите PDF-договор — получите извлечённый текст, пункты и ключевые данные (даты, суммы).</p>
+
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept="application/pdf">
+    <div>Перетащите PDF сюда или <b>выберите файл</b></div>
+    <div class="hint">Цифровой PDF или скан (OCR). Анализ идёт без обращения к LLM.</div>
+  </label>
+
+  <div class="status" id="status"></div>
+  <div id="result"></div>
+</div>
+
+<script>
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('file');
+  const statusEl = document.getElementById('status');
+  const resultEl = document.getElementById('result');
+
+  fileInput.addEventListener('change', () => fileInput.files[0] && upload(fileInput.files[0]));
+  ['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', ev => { const f = ev.dataTransfer.files[0]; if (f) upload(f); });
+
+  async function upload(file) {
+    resultEl.innerHTML = '';
+    statusEl.textContent = `Обрабатываю «${file.name}»…`;
+    statusEl.className = 'status';
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch('/api/preview', { method: 'POST', body: form });
+      if (!res.ok) {
+        statusEl.className = 'status err';
+        statusEl.textContent = `Ошибка (${res.status}). Возможно, это не PDF или скан без распознаваемого текста.`;
+        return;
+      }
+      render(await res.json());
+      statusEl.textContent = '';
+    } catch (e) {
+      statusEl.className = 'status err';
+      statusEl.textContent = 'Не удалось связаться с сервером.';
+    }
+  }
+
+  function esc(s) { return (s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  function chips(items, empty) {
+    if (!items || !items.length) return `<div class="empty">${empty}</div>`;
+    return `<div class="chips">${items.map(i => `<span class="chip">${esc(i)}</span>`).join('')}</div>`;
+  }
+
+  function render(d) {
+    const clauses = (d.clauses || []).map(c => `
+      <div class="clause">
+        ${c.clauseRef ? `<div class="ref">п. ${esc(c.clauseRef)}</div>` : ''}
+        <div class="body">${esc(c.text)}</div>
+      </div>`).join('') || '<div class="empty">Фрагменты не выделены.</div>';
+
+    resultEl.innerHTML = `
+      <div class="card">
+        <h2>${esc(d.filename)}</h2>
+        <div class="stats">
+          <div class="stat"><b>${d.characters.toLocaleString('ru')}</b><span>символов</span></div>
+          <div class="stat"><b>${d.clauseCount}</b><span>фрагментов</span></div>
+          <div class="stat"><b>${(d.dates||[]).length}</b><span>дат</span></div>
+          <div class="stat"><b>${(d.amounts||[]).length}</b><span>сумм</span></div>
+        </div>
+      </div>
+      <div class="card"><h2>Ключевые даты</h2>${chips(d.dates, 'Даты не найдены.')}</div>
+      <div class="card"><h2>Суммы</h2>${chips(d.amounts, 'Суммы не найдены.')}</div>
+      <div class="card"><h2>Пункты договора</h2>${clauses}</div>
+      <div class="card">
+        <details><summary>Показать весь извлечённый текст</summary>
+          <pre class="full">${esc(d.fullText)}</pre>
+        </details>
+      </div>`;
+  }
+</script>
+</body>
+</html>

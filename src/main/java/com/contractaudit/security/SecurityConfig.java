@@ -40,6 +40,8 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
+                // демо-страница превью PDF (без аутентификации)
+                .requestMatchers("/", "/index.html", "/favicon.ico", "/api/preview").permitAll()
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
             // rate limit для /api/auth/** — до аутентификации, отсекаем перебор раньше
