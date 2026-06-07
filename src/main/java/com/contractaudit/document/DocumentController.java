@@ -1,5 +1,6 @@
 package com.contractaudit.document;
 
+import com.contractaudit.chunk.DocumentChunkRepository;
 import com.contractaudit.document.processing.DocumentProcessingService;
 import com.contractaudit.tenant.TenantContext;
 import org.springframework.http.HttpStatus;
@@ -29,11 +30,14 @@ public class DocumentController {
 
     private final DocumentService documentService;
     private final DocumentProcessingService processingService;
+    private final DocumentChunkRepository chunkRepository;
 
     public DocumentController(DocumentService documentService,
-                              DocumentProcessingService processingService) {
+                              DocumentProcessingService processingService,
+                              DocumentChunkRepository chunkRepository) {
         this.documentService = documentService;
         this.processingService = processingService;
+        this.chunkRepository = chunkRepository;
     }
 
     /**
@@ -66,5 +70,23 @@ public class DocumentController {
                 .map(DocumentResponse::from)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Извлечённый текст документа (склейка чанков) — питает DocumentViewer на экране аудита
+     * (подсветка пункта по цитате) и сборку правленой версии из принятых предложений ИИ.
+     * Tenant-scoped: {@code findChunkTextsByDocument} несёт {@code WHERE tenant_id}.
+     */
+    @GetMapping("/{id}/text")
+    public ResponseEntity<DocumentTextResponse> text(@PathVariable UUID id) {
+        if (documentService.get(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        String text = String.join("\n\n", chunkRepository.findChunkTextsByDocument(id));
+        return ResponseEntity.ok(new DocumentTextResponse(text));
+    }
+
+    /** Полный извлечённый текст документа. */
+    public record DocumentTextResponse(String text) {
     }
 }

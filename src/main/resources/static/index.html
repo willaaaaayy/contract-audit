@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
@@ -153,6 +154,46 @@
     .dist { margin-left: auto; font-size: 12px; color: var(--txt-faint); font-variant-numeric: tabular-nums; }
     .sim-bar { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 9px; }
     .sim-bar i { display: block; height: 100%; background: var(--grad); }
+
+    /* adaptive audit */
+    .seg.role { margin-bottom: 0; width: auto; }
+    .seg.role button { padding: 0 13px; height: 32px; font-size: 13px; flex: none; }
+    .gauge-card { display: flex; align-items: center; gap: 20px; }
+    .gauge { position: relative; width: 108px; height: 108px; flex: none; }
+    .gauge svg { transform: rotate(-90deg); display: block; }
+    .gauge .gv { position: absolute; inset: 0; display: grid; place-items: center; font-size: 28px; font-weight: 750; letter-spacing: -.02em; }
+    .gauge-meta .band { font-size: 17px; font-weight: 660; letter-spacing: -.01em; }
+    .gauge-meta .gsub { color: var(--txt-muted); font-size: 13px; margin-top: 2px; }
+    .sevbar { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .rail-toggle { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: var(--txt-faint);
+      font: inherit; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; font-weight: 650; cursor: pointer; padding: 2px 0; }
+    .rail-toggle svg { width: 14px; height: 14px; transition: transform .2s; }
+    .rail-toggle.open svg { transform: rotate(90deg); }
+    .gen-tag { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--accent-2);
+      border: 1px solid rgba(34,211,238,.35); background: rgba(34,211,238,.1); padding: 1px 6px; border-radius: 6px; text-transform: uppercase; }
+    .prof-item { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--border-soft); }
+    .prof-item:last-child { border-bottom: none; }
+    .prof-item .pdot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none; }
+    .prof-item .pl { font-size: 14px; font-weight: 550; }
+    .prof-item .pn { font-size: 13px; color: var(--txt-muted); }
+    .sugg { border: 1px solid var(--border-soft); border-radius: 12px; padding: 13px 15px; margin-bottom: 11px; background: var(--surface-2); transition: .15s; }
+    .sugg.acc { border-color: var(--success); background: color-mix(in srgb, var(--success) 9%, var(--surface-2)); }
+    .sugg.rej { opacity: .45; }
+    .sugg-top { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; flex-wrap: wrap; }
+    .sugg-was { font-size: 13.5px; color: var(--txt-muted); text-decoration: line-through; text-decoration-color: var(--orange); margin-bottom: 8px; white-space: pre-wrap; }
+    .sugg-now { font-size: 14.5px; color: var(--txt); background: rgba(52,211,153,.1); border-left: 3px solid var(--success); padding: 7px 12px; border-radius: 0 8px 8px 0; white-space: pre-wrap; }
+    .sugg-why { font-size: 13px; color: var(--txt-muted); margin-top: 8px; }
+    .sugg-actions { display: flex; gap: 8px; margin-top: 11px; }
+    .viewer { font: 13.5px/1.7 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; max-height: 460px; overflow: auto;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; color: var(--txt-muted); }
+    .viewer mark { background: rgba(251,191,36,.28); color: var(--txt); border-radius: 3px; padding: 0 2px; animation: flash 1.2s ease; }
+    @keyframes flash { 0% { background: rgba(251,191,36,.7); } 100% { background: rgba(251,191,36,.28); } }
+    .actionbar { position: sticky; bottom: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(8px); border-top: 1px solid var(--border-soft);
+      padding: 12px 0 4px; margin-top: 6px; }
+    .stamp { font-size: 12px; font-weight: 650; padding: 4px 11px; border-radius: 8px; }
+    .stamp.ok { color: var(--success); background: rgba(52,211,153,.13); border: 1px solid rgba(52,211,153,.35); }
+    .stamp.rework { color: var(--orange); background: rgba(251,146,60,.13); border: 1px solid rgba(251,146,60,.35); }
 
     /* landing bits (preview) */
     .hero { padding: 56px 0 14px; text-align: center; }
@@ -490,14 +531,23 @@ async function submitAuth(e){
   }
 }
 
-/* ============================ APP (real analysis) ============================ */
-const APP = { docs: [], selected: null, tab: 'risks', poll: null };
+/* ============================ APP (adaptive audit) ============================ */
+// audit[id] = { risks, findings, profile, suggestions, text, analyzed, decision }
+const APP = { docs: [], selected: null, poll: null, role: loadRole(), audit: {} };
+const ROLES = { lawyer: 'Юрист', buyer: 'Закупщик', approver: 'Согласующий', reader: 'Чтение' };
+function loadRole(){ try { return localStorage.getItem('ca-role') || 'lawyer'; } catch(e){ return 'lawyer'; } }
+function setRole(r){ APP.role = r; try { localStorage.setItem('ca-role', r); } catch(e){}
+  document.querySelectorAll('.seg.role button').forEach(b => b.classList.toggle('active', b.dataset.role===r));
+  if (APP.selected) renderAudit(APP.selected);   // тот же документ — другая раскладка
+}
 
 function renderApp(){
+  const roleSeg = `<div class="seg role">${Object.entries(ROLES).map(([k,v]) =>
+    `<button data-role="${k}" class="${APP.role===k?'active':''}" onclick="setRole('${k}')">${esc(v)}</button>`).join('')}</div>`;
   el('view').innerHTML = `<div class="shell" style="padding-top:28px">
     <div class="row" style="justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
       <div><h1 style="font-size:26px;margin:0">Кабинет аудита</h1><div class="muted" style="font-size:14px">${esc(AUTH.email)} · workspace <b style="color:var(--txt)">${esc(AUTH.slug)}</b></div></div>
-      <button class="btn btn-ghost btn-sm" onclick="loadDocs(true)">${I.refresh} Обновить</button>
+      <div class="row" style="gap:10px;flex-wrap:wrap"><span class="muted" style="font-size:12.5px">Роль:</span>${roleSeg}<button class="btn btn-ghost btn-sm" onclick="loadDocs(true)">${I.refresh} Обновить</button></div>
     </div>
 
     <div class="banner warn" id="llmNote" style="display:none">${I.alert}<span>Похоже, OpenAI-ключ не настроен — загрузка обрабатывается, но анализ (эмбеддинги/LLM) вернёт ошибку. Превью на главной работает без ключа.</span></div>
@@ -532,7 +582,8 @@ function renderApp(){
   wireDrop(el('appDrop'), el('appFile'), uploadDoc);
   el('searchForm').addEventListener('submit', runSearch);
   el('policyForm').addEventListener('submit', addPolicy);
-  renderDetail();
+  renderDetailEmpty();
+  if (APP.selected) loadAudit(APP.selected);
   loadDocs();
   loadPolicies();
 }
@@ -544,6 +595,8 @@ async function loadDocs(toastIt){
     el('docCount').textContent = APP.docs.length;
     renderDocList();
     if (toastIt) toast('Обновлено');
+    // выбранный документ дошёл до DONE — собрать экран аудита
+    if (APP.selected){ const sd = APP.docs.find(d=>d.id===APP.selected); if (sd && sd.status==='DONE' && !APP.audit[APP.selected]) loadAudit(APP.selected); }
     // keep polling if any in-flight
     const pending = APP.docs.some(d => d.status==='PENDING' || d.status==='PROCESSING');
     if (pending) schedulePoll(); else stopPoll();
@@ -577,74 +630,302 @@ async function uploadDoc(file){
     if (e.status===500) el('llmNote').style.display = 'flex';
   }
 }
-function selectDoc(id){ APP.selected = id; APP.tab = 'risks'; renderDocList(); renderDetail(); }
+function selectDoc(id){ APP.selected = id; renderDocList(); loadAudit(id); }
 
-function renderDetail(){
+function renderDetailEmpty(){
   const box = el('detail'); if (!box) return;
-  const doc = APP.docs.find(d => d.id===APP.selected);
-  if (!doc){ box.innerHTML = `<div class="card"><div class="empty">Выберите документ слева, чтобы запустить анализ рисков и комплаенс.</div></div>`; return; }
-  const ready = doc.status==='DONE';
-  box.innerHTML = `<div class="card fade-up">
-    <div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <div class="row" style="min-width:0"><span class="doc-fi" style="width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none">${I.file}</span>
-        <b style="font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(doc.filename)}</b></div>
-      ${statusBadge(doc.status)}
-    </div>
-    ${!ready ? `<div class="banner ${doc.status==='FAILED'?'err':'info'}" style="margin-top:12px">${doc.status==='FAILED'?I.alert:I.info}<span>${doc.status==='FAILED'?'Обработка не удалась (вероятно, нет OpenAI-ключа для эмбеддингов).':'Документ обрабатывается — анализ станет доступен после статуса «Готов».'}</span></div>` : `
-    <div class="tabs" style="margin-top:12px">
-      <button class="tab ${APP.tab==='risks'?'active':''}" onclick="setTab('risks')">${I.shield} Риски</button>
-      <button class="tab ${APP.tab==='compliance'?'active':''}" onclick="setTab('compliance')">${I.check2} Комплаенс</button>
-    </div>
-    <div id="tabBody"></div>`}
-  </div>`;
-  if (ready) renderTab();
+  box.innerHTML = `<div class="card"><div class="empty">Выберите документ слева — экран аудита соберётся под него и под вашу роль.</div></div>`;
 }
-function setTab(t){ APP.tab = t; renderDetail(); }
-
-async function renderTab(){
-  const body = el('tabBody'); if (!body) return;
-  const id = APP.selected;
-  const isRisks = APP.tab==='risks';
-  body.innerHTML = `<div class="row" style="justify-content:space-between;margin:4px 0 12px">
-    <span class="muted" style="font-size:13px">${isRisks?'AI Risk Scanner — рискованные условия договора':'Сверка договора с политиками компании'}</span>
-    <button class="btn btn-primary btn-sm" id="runBtn">${isRisks?I.shield:I.check2} ${isRisks?'Сканировать риски':'Проверить'}</button></div>
-    <div id="tabResult"><div class="row muted" style="font-size:13.5px"><span class="spinner"></span> Загружаю сохранённые результаты…</div></div>`;
-  el('runBtn').addEventListener('click', () => runAnalysis(isRisks));
-  // load previously saved findings
-  try {
-    const data = await api(`/api/documents/${id}/${isRisks?'risks':'compliance'}`);
-    paintFindings(data, isRisks, false);
-  } catch(e){ el('tabResult').innerHTML = `<div class="banner err">${I.alert}<span>${esc(e.message)}</span></div>`; }
+function detailHead(doc){
+  return `<div class="card" style="margin-bottom:14px"><div class="row" style="justify-content:space-between">
+    <div class="row" style="min-width:0"><span style="width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none">${I.file}</span>
+    <b style="font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(doc.filename)}</b></div>${statusBadge(doc.status)}</div></div>`;
 }
+function aud(){ return APP.audit[APP.selected]; }
 
-async function runAnalysis(isRisks){
-  const btn = el('runBtn'); const orig = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-top-color:#fff"></span> Анализ…';
-  el('tabResult').innerHTML = `<div class="row muted" style="font-size:13.5px"><span class="spinner"></span> ${isRisks?'LLM ищет риски':'Сверяю с политиками'}… это может занять время.</div>`;
+// Грузит данные для экрана аудита (дешёвые GET'ы: сохранённые риски/комплаенс/текст).
+// Анализ ИИ (риски/комплаенс/профиль/предложения) — по кнопке, см. runFullAnalysis.
+async function loadAudit(id, force){
+  const box = el('detail'); if (!box) return;
+  const doc = APP.docs.find(d => d.id===id);
+  if (!doc){ renderDetailEmpty(); return; }
+  if (doc.status !== 'DONE'){
+    box.innerHTML = detailHead(doc) + `<div class="card"><div class="banner ${doc.status==='FAILED'?'err':'info'}">${doc.status==='FAILED'?I.alert:I.info}<span>${doc.status==='FAILED'?'Обработка не удалась (вероятно, не настроена модель для эмбеддингов).':'Документ обрабатывается — экран аудита соберётся после статуса «Готов».'}</span></div></div>`;
+    return;
+  }
+  if (APP.audit[id] && !force){ renderAudit(id); return; }
+  box.innerHTML = detailHead(doc) + `<div class="card"><div class="row muted" style="font-size:13.5px"><span class="spinner"></span> Собираю экран аудита…</div></div>`;
   try {
-    const data = await api(`/api/documents/${APP.selected}/${isRisks?'risks':'compliance'}`, { method:'POST' });
-    paintFindings(data, isRisks, true);
-    toast('Анализ завершён: '+(data.length)+' найдено');
+    const [risks, findings, textRes] = await Promise.all([
+      api(`/api/documents/${id}/risks`).catch(()=>[]),
+      api(`/api/documents/${id}/compliance`).catch(()=>[]),
+      api(`/api/documents/${id}/text`).catch(()=>({text:''}))
+    ]);
+    const prev = APP.audit[id] || {};
+    APP.audit[id] = { risks: risks||[], findings: findings||[], text: (textRes&&textRes.text)||'',
+      profile: prev.profile||null, suggestions: prev.suggestions||null,
+      analyzed: !!(risks&&risks.length), decision: loadDecision(id), highlight: null };
+    renderAudit(id);
   } catch(e){
-    el('tabResult').innerHTML = `<div class="banner err">${I.alert}<span>${esc(e.message)}${e.status===500?' — вероятно, не настроен OpenAI-ключ.':''}</span></div>`;
-    toast('Не удалось выполнить анализ', 'bad');
-  } finally { btn.disabled = false; btn.innerHTML = orig; }
+    box.innerHTML = detailHead(doc) + `<div class="card"><div class="banner err">${I.alert}<span>${esc(e.message)}</span></div></div>`;
+  }
 }
 
-function paintFindings(data, isRisks, fresh){
-  const out = el('tabResult'); if (!out) return;
-  if (!data || !data.length){ out.innerHTML = `<div class="empty">${fresh?'Ничего не найдено — '+(isRisks?'явных рисков нет':'нарушений политик нет')+'.':'Пока нет результатов. Нажмите «'+(isRisks?'Сканировать риски':'Проверить')+'».'}</div>`; return; }
-  out.innerHTML = data.map(x => isRisks ? `
-    <div class="item">
-      <div class="item-top"><span class="item-type">${esc(x.riskType||'Риск')}</span>${severityBadge(x.severity)}${x.clauseRef?`<span class="ref-badge">п. ${esc(x.clauseRef)}</span>`:''}</div>
-      ${x.quote?`<div class="quote">«${esc(x.quote)}»</div>`:''}
-      <div class="explain">${esc(x.explanation||'')}</div>
-    </div>` : `
-    <div class="item">
-      <div class="item-top">${findingBadge(x.type)}${severityBadge(x.severity)}${x.clauseRef?`<span class="ref-badge">п. ${esc(x.clauseRef)}</span>`:''}</div>
-      ${x.quote?`<div class="quote">«${esc(x.quote)}»</div>`:''}
-      <div class="explain">${esc(x.explanation||'')}</div>
-    </div>`).join('');
+/* ---- контекст: скоринг, тип, ключевые данные ---- */
+const SEV_PENALTY = { CRITICAL:35, HIGH:18, MEDIUM:8, LOW:3 };
+function computeScore(risks){ let s=100; (risks||[]).forEach(r=> s -= (SEV_PENALTY[r.severity]||8)); return Math.max(0, Math.min(100, Math.round(s))); }
+function scoreBand(score){
+  if (score>=80) return { color:'var(--success)', label:'Можно подписывать', sub:'Существенных рисков не видно' };
+  if (score>=60) return { color:'var(--warn)', label:'С осторожностью', sub:'Есть замечания к проработке' };
+  if (score>=40) return { color:'var(--orange)', label:'Серьёзные правки', sub:'Нужны изменения до подписания' };
+  return { color:'var(--danger)', label:'Эскалировать', sub:'Критические условия' };
+}
+function sevCounts(risks){ const c={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0}; (risks||[]).forEach(r=> c[r.severity]=(c[r.severity]||0)+1); return c; }
+const DATE_RE = /\b(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}|\d{4}-\d{2}-\d{2})\b/g;
+const AMOUNT_RE = /(\d[\d\s.,]*\d|\d)\s?(руб|₽|RUB|USD|\$|EUR|€|тыс\.?|млн\.?)/gi;
+function keyDataJS(text){
+  const dates = [...new Set((text.match(DATE_RE)||[]))].slice(0,12);
+  const amounts = [...new Set((text.match(AMOUNT_RE)||[]).map(s=>s.trim()))].slice(0,12);
+  return { dates, amounts };
+}
+function detectType(a){
+  if (a.profile && a.profile.contractType) return a.profile.contractType;
+  const t = (a.text||'').toLowerCase();
+  if (/конфиденциальн|неразглаш|nda|non-disclosure/.test(t)) return 'NDA';
+  if (/\bsla\b|уровень обслуживания|доступность|uptime/.test(t)) return 'SLA';
+  if (/поставк|товар|отгрузк|supply/.test(t)) return 'поставка';
+  if (/аренд|наймодател|lease|\brent\b/.test(t)) return 'аренда';
+  if (/оказани[ея] услуг|исполнитель|услуг/.test(t)) return 'услуги';
+  return '—';
+}
+
+/* ---- layout engine: вес блоков = роль × тип × профиль риска × состояние ---- */
+let QUOTES = [];
+function composeBlocks(a){
+  const c = sevCounts(a.risks);
+  const missingReq = (a.findings||[]).filter(f=>f.type==='MISSING_REQUIRED').length;
+  const kd = keyDataJS(a.text||'');
+  const base = {
+    lawyer:   { risks:1.0, compliance:0.8, suggestions:1.0, keydata:0.5, profile:0.7 },
+    buyer:    { risks:0.7, compliance:0.7, suggestions:0.6, keydata:1.0, profile:0.8 },
+    approver: { risks:0.8, compliance:0.9, suggestions:0.4, keydata:0.6, profile:0.6 },
+    reader:   { risks:0.7, compliance:0.7, suggestions:0.4, keydata:0.7, profile:0.7 }
+  }[APP.role];
+  const hasHigh = c.CRITICAL + c.HIGH > 0;
+  const blocks = [];
+  blocks.push({ key:'risks', w: base.risks*(1 + c.CRITICAL*0.8 + c.HIGH*0.4), html: risksBlock(a) });
+  blocks.push({ key:'compliance', w: base.compliance*(1 + missingReq*0.8), html: complianceBlock(a) });
+  if (a.suggestions || hasHigh) blocks.push({ key:'suggestions', w: base.suggestions*(hasHigh?1.6:0.7), html: suggestionsBlock(a) });
+  blocks.push({ key:'keydata', w: base.keydata*(kd.dates.length?1.3:1), html: keydataBlock(a, kd) });
+  // генеративные блоки профиля — динамический инвентарь под конкретный договор
+  (a.profile && a.profile.blocks || []).forEach((pb,i) => {
+    const items = pb.items||[];
+    const miss = items.filter(it=>(it.status||'').toUpperCase()==='MISSING').length;
+    const att = items.filter(it=>(it.status||'').toUpperCase()==='ATTENTION').length;
+    blocks.push({ key:'profile-'+i, w: base.profile*(1 + miss*0.6 + att*0.3), html: profileBlock(pb) });
+  });
+  blocks.sort((x,y)=> y.w - x.w);
+  const ws = blocks.map(b=>b.w).slice().sort((x,y)=>x-y);
+  const median = ws.length ? ws[Math.floor(ws.length/2)] : 0;
+  blocks.forEach((b,i)=> b.expanded = b.w>=median || i<2);   // выше медианы — в основную колонку
+  return blocks;
+}
+
+function renderAudit(id){
+  const box = el('detail'); if (!box) return;
+  const a = APP.audit[id], doc = APP.docs.find(d=>d.id===id);
+  if (!a || !doc){ renderDetailEmpty(); return; }
+  QUOTES = [];
+  const score = computeScore(a.risks);
+  const blocks = composeBlocks(a);
+  const main = blocks.filter(b=>b.expanded), rail = blocks.filter(b=>!b.expanded);
+  box.innerHTML = detailHead(doc) + scoreBlock(a, score) + (a.analyzed ? '' : analyzePrompt())
+    + main.map(b=>b.html).join('') + (rail.length ? railBlock(rail) : '') + viewerBlock(a) + actionBar(a, score);
+  box.querySelectorAll('[data-q]').forEach(elx => elx.addEventListener('click', () => focusClause(QUOTES[+elx.dataset.q])));
+  if (a.highlight) highlightInViewer(a.highlight);
+}
+
+/* ---- блоки ---- */
+function card(titleHtml, count, body){ return `<div class="card fade-up"><h2>${titleHtml}${count!=null?`<span class="count">${count}</span>`:''}</h2>${body}</div>`; }
+
+function scoreBlock(a, score){
+  const type = detectType(a);
+  if (!a.analyzed){
+    return `<div class="card gauge-card fade-up"><div class="gauge">${gaugeSvg(0,'var(--txt-faint)')}<div class="gv" style="font-size:18px;color:var(--txt-faint)">—</div></div>
+      <div class="gauge-meta"><div class="band">Не проверено</div><div class="gsub">Тип: ${esc(type)} · запустите анализ для оценки рисков</div></div></div>`;
+  }
+  const b = scoreBand(score), c = sevCounts(a.risks);
+  const sev = ['CRITICAL','HIGH','MEDIUM','LOW'].filter(k=>c[k]).map(k=>`<span class="badge b-${k.toLowerCase()}">${c[k]} ${k}</span>`).join('');
+  return `<div class="card gauge-card fade-up"><div class="gauge">${gaugeSvg(score,b.color)}<div class="gv" style="color:${b.color}">${score}</div></div>
+    <div class="gauge-meta"><div class="band" style="color:${b.color}">${b.label}</div>
+      <div class="gsub">Тип: ${esc(type)} · ${b.sub}</div>
+      <div class="sevbar">${sev||'<span class="muted" style="font-size:12px">рисков не найдено</span>'}</div></div></div>`;
+}
+function gaugeSvg(score, color){
+  const r=46, c=2*Math.PI*r, off=c*(1-score/100);
+  return `<svg width="108" height="108" viewBox="0 0 108 108">
+    <circle cx="54" cy="54" r="${r}" fill="none" stroke="var(--border)" stroke-width="9"/>
+    <circle cx="54" cy="54" r="${r}" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg>`;
+}
+function analyzePrompt(){
+  return `<div class="card fade-up" style="border-color:var(--accent-ring);background:var(--accent-soft)"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <span style="font-size:14px">${I.info} Документ обработан, но ещё не проанализирован ИИ.</span>
+    <button class="btn btn-sm btn-primary" onclick="runFullAnalysis()">${I.shield} Запустить анализ</button></div></div>`;
+}
+function risksBlock(a){
+  const risks = a.risks||[];
+  const body = risks.length ? risks.map(r=>{
+    let attr=''; if (r.quote){ QUOTES.push(r.quote); attr=` data-q="${QUOTES.length-1}" style="cursor:pointer" title="Показать в тексте"`; }
+    return `<div class="item"${attr}><div class="item-top"><span class="item-type">${esc(r.riskType||'Риск')}</span>${severityBadge(r.severity)}${r.clauseRef?`<span class="ref-badge">п. ${esc(r.clauseRef)}</span>`:''}</div>${r.quote?`<div class="quote">«${esc(r.quote)}»</div>`:''}<div class="explain">${esc(r.explanation||'')}</div></div>`;
+  }).join('') : `<div class="empty">${a.analyzed?'Явных рисков не найдено.':'Запустите анализ, чтобы найти риски.'}</div>`;
+  return card(I.shield+' Риски', risks.length, body);
+}
+function complianceBlock(a){
+  const f = a.findings||[];
+  const body = f.length ? f.map(x=>{
+    let attr=''; if (x.quote){ QUOTES.push(x.quote); attr=` data-q="${QUOTES.length-1}" style="cursor:pointer" title="Показать в тексте"`; }
+    return `<div class="item"${attr}><div class="item-top">${findingBadge(x.type)}${severityBadge(x.severity)}${x.clauseRef?`<span class="ref-badge">п. ${esc(x.clauseRef)}</span>`:''}</div>${x.quote?`<div class="quote">«${esc(x.quote)}»</div>`:''}<div class="explain">${esc(x.explanation||'')}</div></div>`;
+  }).join('') : `<div class="empty">${a.analyzed?'Нарушений политик не найдено.':'Будет доступно после анализа.'}</div>`;
+  return card(I.check2+' Комплаенс', f.length, body);
+}
+function keydataBlock(a, kd){
+  const chip=(items,cls,ico)=> items.length?`<div class="chips">${items.map(i=>`<span class="chip ${cls}">${ico}${esc(i)}</span>`).join('')}</div>`:`<div class="empty">—</div>`;
+  return card(I.cal+' Ключевые данные', kd.dates.length+kd.amounts.length,
+    `<div class="muted" style="font-size:12px;margin-bottom:6px">Даты</div>${chip(kd.dates,'date',I.cal)}
+     <div class="muted" style="font-size:12px;margin:12px 0 6px">Суммы</div>${chip(kd.amounts,'amount',I.coin)}`);
+}
+function profileBlock(pb){
+  const items = (pb.items||[]).map(it=>{
+    const st=(it.status||'').toUpperCase();
+    const color = st==='MISSING'?'var(--danger)':st==='ATTENTION'?'var(--warn)':'var(--success)';
+    return `<div class="prof-item"><span class="pdot" style="background:${color}"></span>
+      <div style="flex:1"><div class="pl">${esc(it.label||'')}</div>${it.note?`<div class="pn">${esc(it.note)}</div>`:''}</div>
+      ${it.clauseRef?`<span class="ref-badge">п. ${esc(it.clauseRef)}</span>`:''}</div>`;
+  }).join('') || '<div class="empty">—</div>';
+  return `<div class="card fade-up"><h2>${I.list} ${esc(pb.title||'Блок')} <span class="gen-tag">ИИ</span><span class="count">${(pb.items||[]).length}</span></h2>${pb.summary?`<div class="muted" style="font-size:13px;margin:-6px 0 10px">${esc(pb.summary)}</div>`:''}${items}</div>`;
+}
+
+/* ---- предложения ИИ: правка договора (принять/отклонить → экспорт) ---- */
+function suggestionsBlock(a){
+  const head = `${I.shield} Предложения по правкам`;
+  if (!a.suggestions){
+    return card(head, null, `<div class="muted" style="font-size:13.5px;margin-bottom:10px">ИИ перепишет рискованные пункты на более безопасные формулировки — вы примете или отклоните каждую.</div>
+      <button class="btn btn-sm btn-primary" onclick="genSuggestions()">${I.shield} Предложить формулировки</button>`);
+  }
+  if (!a.suggestions.length) return card(head, 0, '<div class="empty">ИИ не предложил правок.</div>');
+  const cards = a.suggestions.map((s,i)=>`
+    <div class="sugg ${s.decision==='acc'?'acc':s.decision==='rej'?'rej':''}">
+      <div class="sugg-top">${severityBadge(s.severity)}${s.clauseRef?`<span class="ref-badge">п. ${esc(s.clauseRef)}</span>`:''}<span class="muted" style="font-size:12px">${esc(s.riskType||'')}</span></div>
+      ${s.original?`<div class="sugg-was">${esc(s.original)}</div>`:''}
+      <div class="sugg-now">${esc(s.suggested||'')}</div>
+      ${s.rationale?`<div class="sugg-why">${I.info} ${esc(s.rationale)}</div>`:''}
+      <div class="sugg-actions">
+        <button class="btn btn-sm ${s.decision==='acc'?'btn-primary':'btn-ghost'}" onclick="decideSuggestion(${i},'acc')">${I.check2} Принять</button>
+        <button class="btn btn-sm btn-ghost" onclick="decideSuggestion(${i},'rej')">Отклонить</button>
+      </div></div>`).join('');
+  const accepted = a.suggestions.filter(s=>s.decision==='acc').length;
+  const bar = `<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+    <button class="btn btn-sm btn-primary" ${accepted?'':'disabled'} onclick="exportRedline()">${I.file} Скачать правки (.md)${accepted?' · '+accepted:''}</button>
+    <button class="btn btn-sm btn-ghost" ${accepted?'':'disabled'} onclick="buildRevised()">Правленая версия (.txt)</button></div>`;
+  return card(head, a.suggestions.length, cards + bar);
+}
+async function genSuggestions(){
+  const id = APP.selected, a = aud(); if (!a) return;
+  if (!a.analyzed){ toast('Сначала запустите анализ', 'bad'); return; }
+  toast('ИИ готовит формулировки…');
+  try {
+    const list = await api(`/api/documents/${id}/suggestions`, { method:'POST' });
+    a.suggestions = (list||[]).map(s=>({ ...s, decision:null }));
+    renderAudit(id);
+    toast(a.suggestions.length ? ('Готово: '+a.suggestions.length+' правок') : 'ИИ не предложил правок');
+    scrollSugg();
+  } catch(e){ toast(e.message + (e.status===500?' (нужна модель)':''), 'bad'); }
+}
+function decideSuggestion(i, d){ const a=aud(); if(!a||!a.suggestions) return; a.suggestions[i].decision = a.suggestions[i].decision===d?null:d; renderAudit(APP.selected); }
+function scrollSugg(){ document.querySelector('.sugg')?.scrollIntoView({behavior:'smooth', block:'center'}); }
+function exportRedline(){
+  const a=aud(); if(!a||!a.suggestions) return;
+  const acc = a.suggestions.filter(s=>s.decision==='acc'); if(!acc.length) return;
+  const doc = APP.docs.find(d=>d.id===APP.selected); const name = doc?doc.filename.replace(/\.pdf$/i,''):'contract';
+  let md = `# Предложенные правки — ${doc?doc.filename:''}\n\nСгенерировано ИИ, проверено пользователем (роль: ${ROLES[APP.role]}). Принято правок: ${acc.length}.\n\n`;
+  acc.forEach((s,i)=>{ md += `## ${i+1}. Пункт ${s.clauseRef||'—'} · ${s.riskType||''} (${s.severity||''})\n\n**Было:**\n> ${(s.original||'').replace(/\n/g,'\n> ')}\n\n**Стало:**\n> ${(s.suggested||'').replace(/\n/g,'\n> ')}\n\n_${s.rationale||''}_\n\n`; });
+  download(name+'-правки.md', md, 'text/markdown');
+  toast('Файл с правками скачан');
+}
+function buildRevised(){
+  const a=aud(); if(!a||!a.suggestions) return;
+  const acc = a.suggestions.filter(s=>s.decision==='acc'); if(!acc.length) return;
+  let text = a.text||''; let applied=0; const unmatched=[];
+  acc.forEach(s=>{ if (s.original && text.includes(s.original)){ text = text.replace(s.original, s.suggested||''); applied++; } else unmatched.push(s.clauseRef||'—'); });
+  const doc = APP.docs.find(d=>d.id===APP.selected); const name = doc?doc.filename.replace(/\.pdf$/i,''):'contract';
+  download(name+'-revised.txt', text, 'text/plain');
+  toast(`Правленая версия: применено ${applied}${unmatched.length?', не сопоставлено '+unmatched.length:''}`);
+}
+function download(name, content, type){
+  const blob = new Blob([content], {type:type+';charset=utf-8'});
+  const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url);
+}
+
+/* ---- DocumentViewer: текст с подсветкой пункта (двусторонняя связь риск↔первоисточник) ---- */
+function viewerBlock(a){
+  const text = a.text||'';
+  return `<div class="card fade-up"><h2>${I.file} Текст документа <span class="muted" style="margin-left:auto;font-size:11px;letter-spacing:0;text-transform:none">клик по риску — подсветка</span></h2>
+    <div class="viewer" id="viewerBox">${text?esc(text):'<span class="empty">Текст недоступен.</span>'}</div></div>`;
+}
+function focusClause(quote){ const a=aud(); if(!a) return; a.highlight = quote; highlightInViewer(quote); }
+function highlightInViewer(quote){
+  const box = el('viewerBox'), a = aud(); if (!box||!a||!quote) return;
+  const text = a.text||''; const needle = quote.slice(0, Math.min(quote.length,120)).toLowerCase();
+  const idx = text.toLowerCase().indexOf(needle);
+  if (idx<0){ box.innerHTML = esc(text); toast('Цитата не найдена в тексте', 'bad'); return; }
+  const end = Math.min(text.length, idx + Math.max(quote.length, needle.length));
+  box.innerHTML = esc(text.slice(0,idx)) + '<mark>' + esc(text.slice(idx,end)) + '</mark>' + esc(text.slice(end));
+  box.querySelector('mark')?.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+/* ---- rail: свёрнутый движком инвентарь ---- */
+function railBlock(rail){
+  return `<div class="card fade-up"><button class="rail-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'">${I.chev} Ещё ${rail.length} ${plural(rail.length,'блок','блока','блоков')} · свёрнуто движком</button>
+    <div style="display:none;margin-top:12px">${rail.map(b=>b.html).join('')}</div></div>`;
+}
+function plural(n,a,b,c){ const m=n%100, d=n%10; if(m>=11&&m<=14) return c; if(d===1) return a; if(d>=2&&d<=4) return b; return c; }
+
+/* ---- ActionBar: действие по умолчанию зависит от роли ---- */
+function actionBar(a, score){
+  const analyze = `<button class="btn btn-sm btn-ghost" onclick="runFullAnalysis()">${I.shield} ${a.analyzed?'Переанализировать':'Запустить анализ'}</button>`;
+  if (APP.role==='reader') return `<div class="actionbar"><span class="muted" style="font-size:13px">Режим чтения — действия отключены.</span><span class="muted" style="margin-left:auto;font-size:12px">Раскладка под «Чтение»</span></div>`;
+  let primary='';
+  if (APP.role==='lawyer') primary = a.suggestions
+    ? `<button class="btn btn-sm btn-primary" onclick="scrollSugg()">${I.shield} К предложениям</button>`
+    : `<button class="btn btn-sm btn-primary" onclick="genSuggestions()">${I.shield} Предложить формулировки</button>`;
+  if (APP.role==='buyer') primary = `<button class="btn btn-sm btn-primary" onclick="genSuggestions()">${I.coin} Уточнить условия</button>`;
+  if (APP.role==='approver'){
+    const dec=a.decision;
+    primary = `<button class="btn btn-sm btn-primary" onclick="decideDoc('ok')">${I.check2} Согласовать</button>
+      <button class="btn btn-sm btn-ghost" onclick="decideDoc('rework')">На доработку</button>
+      ${dec==='ok'?'<span class="stamp ok">Согласовано</span>':dec==='rework'?'<span class="stamp rework">На доработку</span>':''}`;
+  }
+  return `<div class="actionbar">${primary}${analyze}<span class="muted" style="margin-left:auto;font-size:12px">Раскладка под «${ROLES[APP.role]}»</span></div>`;
+}
+function decideDoc(d){ const a=aud(); if(!a) return; a.decision = a.decision===d?null:d; saveDecision(APP.selected, a.decision); renderAudit(APP.selected); toast(d==='ok'?'Согласовано (фиксируется локально)':'На доработку (фиксируется локально)'); }
+function saveDecision(id,d){ try{ const m=JSON.parse(localStorage.getItem('ca-decisions')||'{}'); if(d) m[id]=d; else delete m[id]; localStorage.setItem('ca-decisions', JSON.stringify(m)); }catch(e){} }
+function loadDecision(id){ try{ return (JSON.parse(localStorage.getItem('ca-decisions')||'{}'))[id]||null; }catch(e){ return null; } }
+
+/* ---- полный анализ ИИ: риски + комплаенс + генеративный профиль ---- */
+async function runFullAnalysis(){
+  const id = APP.selected, a = aud(); if (!a) return;
+  toast('Анализ ИИ: риски, комплаенс, профиль…');
+  el('detail').querySelectorAll('.actionbar .btn').forEach(b=> b.disabled=true);
+  try {
+    const [risks, findings, profile] = await Promise.all([
+      api(`/api/documents/${id}/risks`, { method:'POST' }),
+      api(`/api/documents/${id}/compliance`, { method:'POST' }).catch(()=>[]),
+      api(`/api/documents/${id}/profile`, { method:'POST' }).catch(()=>null)
+    ]);
+    a.risks = risks||[]; a.findings = findings||[]; a.profile = profile; a.analyzed = true; a.suggestions = null;
+    renderAudit(id);
+    toast('Анализ завершён');
+  } catch(e){ toast(e.message + (e.status===500?' (нужна модель)':''), 'bad'); renderAudit(id); }
 }
 
 /* ---- search ---- */
