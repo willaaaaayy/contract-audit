@@ -14,3 +14,8 @@ out/
 
 # OS
 .DS_Store
+
+# Личное — не для репозитория/портфолио (видно только локально)
+docs/interview-cheatsheet.md
+docs/project-handoff.md
+private/
