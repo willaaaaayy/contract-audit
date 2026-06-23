@@ -165,7 +165,7 @@ OCR требует установленного Tesseract; `ocr.library-path` п
 ✅ Authn-сервис выдачи JWT — RS256, register/login через workspace-slug, локальная валидация
 ✅ Прод-харднинг — RSA-ключи из конфигурации (PEM), invite-флоу (ADMIN-only),
    rate limiting auth, Actuator/Micrometer метрики, blob в S3/MinIO
-✅ Тесты (29): изоляция (leak/honeypot + recall@k), unit chunker, e2e (upload→process→search),
+✅ Тесты (36): изоляция (leak/honeypot + recall@k), unit chunker, e2e (upload→process→search),
    Risk Scanner, Compliance, OCR (реальный Tesseract), bge-реранкер, claim/поллер, auth (JWT),
    invite (ADMIN-гейт), rate limit (429), метрики, S3 (MinIO)
 ```
@@ -204,6 +204,7 @@ POST /api/auth/login                — вход (slug + email + пароль), 
 POST /api/documents                 — загрузка PDF (202, async-обработка)
 GET  /api/documents                 — список документов арендатора
 GET  /api/documents/{id}            — статус/метаданные
+GET  /api/documents/{id}/text       — извлечённый текст (склейка чанков) для DocumentViewer
 POST /api/search                    — семантический поиск по смыслу
 POST /api/documents/{id}/risks      — запустить Risk Scanner
 GET  /api/documents/{id}/risks      — найденные риски
@@ -211,6 +212,8 @@ POST /api/policies                  — добавить политику ком
 GET  /api/policies                  — список политик
 POST /api/documents/{id}/compliance — сверить договор с политиками
 GET  /api/documents/{id}/compliance — результаты сверки
+POST /api/documents/{id}/profile    — генеративный профиль (тип договора + блоки-чек-листы)
+POST /api/documents/{id}/suggestions — предложения по правкам рискованных пунктов (?all=false)
 POST /api/users                     — пригласить пользователя (ADMIN-only)
 GET  /actuator/health|prometheus    — health и метрики
 ```

@@ -312,7 +312,8 @@ const I = {
   info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
   chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
-  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>'
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>',
+  arrowLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 19l-7-7 7-7"/></svg>'
 };
 
 /* ============================ helpers ============================ */
@@ -387,6 +388,7 @@ function route(){
   const path = (location.hash || '#/').slice(1);
   renderNav();
   if (path === '/login') return renderAuth();
+  if (path.startsWith('/app/doc/')) { if (!AUTH.authed) return go('/login'); return renderDocPage(decodeURIComponent(path.slice('/app/doc/'.length))); }
   if (path.startsWith('/app')) { if (!AUTH.authed) return go('/login'); return renderApp(); }
   return renderLanding();
 }
@@ -542,12 +544,10 @@ function setRole(r){ APP.role = r; try { localStorage.setItem('ca-role', r); } c
 }
 
 function renderApp(){
-  const roleSeg = `<div class="seg role">${Object.entries(ROLES).map(([k,v]) =>
-    `<button data-role="${k}" class="${APP.role===k?'active':''}" onclick="setRole('${k}')">${esc(v)}</button>`).join('')}</div>`;
   el('view').innerHTML = `<div class="shell" style="padding-top:28px">
     <div class="row" style="justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
       <div><h1 style="font-size:26px;margin:0">Кабинет аудита</h1><div class="muted" style="font-size:14px">${esc(AUTH.email)} · workspace <b style="color:var(--txt)">${esc(AUTH.slug)}</b></div></div>
-      <div class="row" style="gap:10px;flex-wrap:wrap"><span class="muted" style="font-size:12.5px">Роль:</span>${roleSeg}<button class="btn btn-ghost btn-sm" onclick="loadDocs(true)">${I.refresh} Обновить</button></div>
+      <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="loadDocs(true)">${I.refresh} Обновить</button></div>
     </div>
 
     <div class="banner warn" id="llmNote" style="display:none">${I.alert}<span>Похоже, OpenAI-ключ не настроен — загрузка обрабатывается, но анализ (эмбеддинги/LLM) вернёт ошибку. Превью на главной работает без ключа.</span></div>
@@ -564,6 +564,7 @@ function renderApp(){
         </div>
         <div class="card">
           <h2>${I.file} Мои документы <span class="count" id="docCount">0</span></h2>
+          <div class="muted" style="font-size:12.5px;margin:-6px 0 12px">Выберите документ — откроется отдельная рабочая страница аудита.</div>
           <div id="docList"><div class="row muted" style="font-size:13.5px"><span class="spinner"></span> Загружаю…</div></div>
         </div>
         ${policiesCard()}
@@ -574,7 +575,10 @@ function renderApp(){
           <form id="searchForm" class="row" style="gap:8px"><input class="input" id="searchQ" placeholder="напр. «кто платит за доставку»"><button class="btn btn-primary" type="submit" style="flex:none">${I.search}</button></form>
           <div id="searchOut" style="margin-top:12px"></div>
         </div>
-        <div id="detail"></div>
+        <div class="card">
+          <h2>${I.shield} Как это работает</h2>
+          <div class="muted" style="font-size:13.5px">Загрузите PDF, дождитесь статуса «Готов» и откройте документ. На странице аудита экран соберётся под ваш договор и роль: оценка риска, риски, комплаенс, генеративный профиль и предложения по правкам.</div>
+        </div>
       </div>
     </div>
   </div>${footer()}`;
@@ -582,17 +586,40 @@ function renderApp(){
   wireDrop(el('appDrop'), el('appFile'), uploadDoc);
   el('searchForm').addEventListener('submit', runSearch);
   el('policyForm').addEventListener('submit', addPolicy);
-  renderDetailEmpty();
-  if (APP.selected) loadAudit(APP.selected);
   loadDocs();
   loadPolicies();
+}
+
+/* ---- отдельная страница работы над конкретным документом ---- */
+async function renderDocPage(id){
+  APP.selected = id;
+  const roleSeg = `<div class="seg role">${Object.entries(ROLES).map(([k,v]) =>
+    `<button data-role="${k}" class="${APP.role===k?'active':''}" onclick="setRole('${k}')">${esc(v)}</button>`).join('')}</div>`;
+  el('view').innerHTML = `<div class="shell" style="padding-top:22px">
+    <div class="row" style="justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <button class="btn btn-ghost btn-sm" onclick="go('/app')">${I.arrowLeft} Все документы</button>
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center"><span class="muted" style="font-size:12.5px">Роль:</span>${roleSeg}</div>
+    </div>
+    <div id="detail"><div class="card"><div class="row muted" style="font-size:13.5px"><span class="spinner"></span> Открываю документ…</div></div></div>
+  </div>${footer()}`;
+
+  // освежаем список (нужен статус и метаданные именно этого документа), затем собираем экран
+  try { APP.docs = await api('/api/documents') || APP.docs; } catch(e){}
+  const doc = APP.docs.find(d => d.id===id);
+  if (!doc){
+    el('detail').innerHTML = `<div class="card"><div class="banner err">${I.alert}<span>Документ не найден или недоступен в этом workspace.</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="go('/app')" style="margin-top:12px">${I.arrowLeft} Вернуться к списку</button></div>`;
+    return;
+  }
+  loadAudit(id, true);
+  if (doc.status==='PENDING' || doc.status==='PROCESSING') schedulePoll(); else stopPoll();
 }
 
 /* ---- documents ---- */
 async function loadDocs(toastIt){
   try {
     APP.docs = await api('/api/documents') || [];
-    el('docCount').textContent = APP.docs.length;
+    if (el('docCount')) el('docCount').textContent = APP.docs.length;
     renderDocList();
     if (toastIt) toast('Обновлено');
     // выбранный документ дошёл до DONE — собрать экран аудита
@@ -600,7 +627,7 @@ async function loadDocs(toastIt){
     // keep polling if any in-flight
     const pending = APP.docs.some(d => d.status==='PENDING' || d.status==='PROCESSING');
     if (pending) schedulePoll(); else stopPoll();
-  } catch(e){ el('docList').innerHTML = `<div class="banner err">${I.alert}<span>${esc(e.message)}</span></div>`; }
+  } catch(e){ if (el('docList')) el('docList').innerHTML = `<div class="banner err">${I.alert}<span>${esc(e.message)}</span></div>`; }
 }
 function renderDocList(){
   const list = el('docList'); if (!list) return;
@@ -621,16 +648,13 @@ async function uploadDoc(file){
   try {
     const d = await api('/api/documents', { method:'POST', form });
     toast('Принят в обработку');
-    APP.selected = d.id;
-    await loadDocs();
-    selectDoc(d.id);
-    schedulePoll();
+    go('/app/doc/' + encodeURIComponent(d.id));   // открываем отдельную страницу документа
   } catch(e){
     toast(e.message, 'bad');
     if (e.status===500) el('llmNote').style.display = 'flex';
   }
 }
-function selectDoc(id){ APP.selected = id; renderDocList(); loadAudit(id); }
+function selectDoc(id){ go('/app/doc/' + encodeURIComponent(id)); }
 
 function renderDetailEmpty(){
   const box = el('detail'); if (!box) return;
