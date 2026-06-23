@@ -14,9 +14,25 @@ spec:
       labels:
         app: contract-audit
     spec:
+      # Pod-level: контейнер не от root, нестандартный seccomp-профиль RuntimeDefault.
+      # UID/GID 1000 совпадают с пользователем cnb из Paketo-buildpacks (spring-boot:build-image).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: contract-audit
           image: contract-audit:latest    # подставьте тег из CI (registry/contract-audit:<sha>)
+          # Container-level: минимум привилегий. readOnlyRootFilesystem требует writable /tmp
+          # (multipart-загрузка, временные файлы PDFBox/Tesseract) — монтируем emptyDir ниже.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ "ALL" ]
           ports:
             - name: http
               containerPort: 8080
@@ -29,6 +45,8 @@ spec:
             - name: jwt-keys
               mountPath: /etc/jwt
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: "500m"
@@ -59,3 +77,5 @@ spec:
         - name: jwt-keys
           secret:
             secretName: contract-audit-jwt
+        - name: tmp
+          emptyDir: {}

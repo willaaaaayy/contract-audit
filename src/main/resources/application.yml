@@ -149,4 +149,6 @@ server:
 
 logging:
   level:
-    com.contractaudit: DEBUG
+    # Прод-safe по умолчанию. Подробный DEBUG включается dev-профилем `local`
+    # (application-local.yml), чтобы не шуметь и не светить детали в проде.
+    com.contractaudit: INFO

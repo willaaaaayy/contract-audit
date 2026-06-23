@@ -38,3 +38,8 @@ spring:
 app:
   embedding:
     target-dimensions: ${EMBEDDING_TARGET_DIM:1536}
+
+# Подробное логирование для локальной разработки/отладки (в дефолт-профиле — INFO).
+logging:
+  level:
+    com.contractaudit: DEBUG
