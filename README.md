@@ -165,7 +165,7 @@ OCR требует установленного Tesseract; `ocr.library-path` п
 ✅ Authn-сервис выдачи JWT — RS256, register/login через workspace-slug, локальная валидация
 ✅ Прод-харднинг — RSA-ключи из конфигурации (PEM), invite-флоу (ADMIN-only),
    rate limiting auth, Actuator/Micrometer метрики, blob в S3/MinIO
-✅ Тесты (36): изоляция (leak/honeypot + recall@k), unit chunker, e2e (upload→process→search),
+✅ Тесты (43): изоляция (leak/honeypot + recall@k), unit chunker, e2e (upload→process→search),
    Risk Scanner, Compliance, OCR (реальный Tesseract), bge-реранкер, claim/поллер, auth (JWT),
    invite (ADMIN-гейт), rate limit (429), метрики, S3 (MinIO)
 ```
