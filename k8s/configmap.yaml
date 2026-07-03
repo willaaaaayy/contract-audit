@@ -6,6 +6,8 @@ metadata:
     app: contract-audit
 data:
   # Несекретная конфигурация (env → relaxed binding в application.yml).
+  # Структурные JSON-логи (ECS) для сбора лог-агентом; локально формат остаётся текстовым.
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: "ecs"
   AUTH_ISSUER: "contract-audit"
   BLOB_STORAGE: "s3"
   RATE_LIMIT_BACKEND: "redis"

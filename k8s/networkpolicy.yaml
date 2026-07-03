@@ -1,0 +1,34 @@
+# Сетевая изоляция подов приложения: по умолчанию весь ingress запрещён, разрешены только
+# ingress-контроллер (внешний трафик) и Prometheus (скрейп /actuator/prometheus,
+# см. servicemonitor.yaml). Egress не ограничиваем: приложению нужны Postgres, Redis,
+# MinIO/S3, DNS и внешний LLM-провайдер — строгий egress легко ломается при смене адресов.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: contract-audit
+  labels:
+    app: contract-audit
+spec:
+  podSelector:
+    matchLabels:
+      app: contract-audit
+  policyTypes:
+    - Ingress
+  ingress:
+    # Внешний трафик через ingress-контроллер. Подставьте метку namespace вашего
+    # контроллера (пример — стандартная метка ingress-nginx).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+          protocol: TCP
+    # Prometheus из namespace мониторинга (kube-prometheus-stack).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8080
+          protocol: TCP

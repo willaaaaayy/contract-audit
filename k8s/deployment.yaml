@@ -14,8 +14,10 @@ spec:
       labels:
         app: contract-audit
     spec:
-      # Pod-level: контейнер не от root, нестандартный seccomp-профиль RuntimeDefault.
-      # UID/GID 1000 совпадают с пользователем cnb из Paketo-buildpacks (spring-boot:build-image).
+      # Токен Kubernetes API не нужен — выделенный SA с отключённым automount (serviceaccount.yaml).
+      serviceAccountName: contract-audit
+      # Pod-level: контейнер не от root, стандартный seccomp-профиль RuntimeDefault.
+      # UID/GID 1000 совпадают с USER 1000:1000 из Dockerfile (ubuntu в noble-базе).
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -25,7 +27,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: contract-audit
-          image: contract-audit:latest    # подставьте тег из CI (registry/contract-audit:<sha>)
+          # CI публикует образ в GHCR по SHA коммита (см. .github/workflows/ci.yml);
+          # для прод-деплоя зафиксируйте конкретный тег вместо latest.
+          image: ghcr.io/willaaaaayy/contract-audit:latest
           # Container-level: минимум привилегий. readOnlyRootFilesystem требует writable /tmp
           # (multipart-загрузка, временные файлы PDFBox/Tesseract) — монтируем emptyDir ниже.
           securityContext:
