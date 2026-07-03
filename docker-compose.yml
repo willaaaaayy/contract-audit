@@ -2,6 +2,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     container_name: contract-audit-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: contract_audit
       POSTGRES_USER: contract_audit
@@ -19,6 +20,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: contract-audit-minio
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -37,6 +39,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: contract-audit-redis
+    restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
@@ -46,11 +49,15 @@ services:
       retries: 10
 
   # Локальный inference для профиля `local` (self-hosted, без облачных ключей).
+  # Стартует только с compose-профилем local: `docker compose --profile local up -d` —
+  # иначе тяжёлые модели тянулись бы у всех, включая тех, кто работает через OpenAI.
   # GPU необязателен — на CPU работает, но медленнее; для маломощного VDS возьмите
   # модели полегче (см. ollama-init и README).
   ollama:
     image: ollama/ollama:latest
     container_name: contract-audit-ollama
+    profiles: ["local"]
+    restart: unless-stopped
     ports:
       - "127.0.0.1:11434:11434"
     volumes:
@@ -75,6 +82,7 @@ services:
   ollama-init:
     image: ollama/ollama:latest
     container_name: contract-audit-ollama-init
+    profiles: ["local"]
     depends_on:
       ollama:
         condition: service_healthy

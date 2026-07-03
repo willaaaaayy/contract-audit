@@ -46,8 +46,9 @@ export JWT_ISSUER_URI=http://localhost:9000   # ваш IdP (Keycloak/Auth0/...)
 distance-sort.
 
 ```bash
-# 1. Поднять инфраструктуру + Ollama и скачать модели (init-сервис тянет их и завершается)
-docker compose up -d
+# 1. Поднять инфраструктуру + Ollama и скачать модели (init-сервис тянет их и завершается).
+#    Ollama гейтится compose-профилем local — обычный `docker compose up -d` его не стартует.
+docker compose --profile local up -d
 docker compose logs -f ollama-init    # дождаться «Модели готовы.»
 
 # 2. Запустить приложение в профиле local (OPENAI_API_KEY не нужен)
