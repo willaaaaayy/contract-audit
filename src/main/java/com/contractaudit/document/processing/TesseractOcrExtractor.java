@@ -21,9 +21,16 @@ import java.io.UncheckedIOException;
  * <p>Нативная {@code libtesseract} грузится JNA лениво — при первом {@code doOCR}, а не при
  * создании бина. Поэтому приложение стартует даже там, где Tesseract не установлен; падение
  * случится только при реальной попытке распознать скан (и будет помечено как FAILED).
+ *
+ * <p>Распознавание сериализовано ({@link #OCR_LOCK}): параллельные вызовы нативной
+ * libtesseract из разных потоков (пул doc-proc) приводят к SIGSEGV внутри
+ * {@code recog_all_words} — даже с отдельным инстансом {@code Tesseract} на вызов.
+ * OCR CPU-bound, так что потерь от сериализации почти нет.
  */
 @Component
 public class TesseractOcrExtractor implements TextExtractor {
+
+    private static final Object OCR_LOCK = new Object();
 
     private final OcrProperties properties;
 
@@ -52,7 +59,9 @@ public class TesseractOcrExtractor implements TextExtractor {
             StringBuilder text = new StringBuilder();
             for (int page = 0; page < document.getNumberOfPages(); page++) {
                 BufferedImage image = renderer.renderImageWithDPI(page, properties.dpi(), ImageType.GRAY);
-                text.append(tesseract.doOCR(image)).append('\n');
+                synchronized (OCR_LOCK) {
+                    text.append(tesseract.doOCR(image)).append('\n');
+                }
             }
             return text.toString();
         } catch (IOException e) {
