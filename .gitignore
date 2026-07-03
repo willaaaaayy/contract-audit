@@ -5,8 +5,7 @@ target/
 # IntelliJ
 *.iml
 out/
-.idea/workspace.xml
-.idea/shelf/
+.idea/
 
 # Env / secrets
 .env

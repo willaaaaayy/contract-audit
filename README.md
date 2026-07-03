@@ -108,19 +108,22 @@ EXTERNAL_DB=true ./mvnw test
 
 ```
 com.contractaudit
-├── auth       — выдача JWT (RSA/RS256): register/login, TokenService, локальный JwtDecoder
-├── tenant     — TenantContext, резолвер @TenantId, slug, фильтр извлечения tenant из JWT
-├── security   — конфигурация JWT resource server + PasswordEncoder
-├── user       — AppUser + репозиторий
-├── document   — метаданные документов (Document, статусы)
-├── chunk      — document_chunks: нативный pgvector-доступ (изоляция + поиск)
-├── retrieval  — двухэтапный семантический поиск (pgvector → реранкер)
-├── risk       — Risk Scanner: ChatModel + structured output → document_risks
-├── policy     — библиотека политик компании (pgvector)
-├── compliance — Compliance Checker: сверка договора с политиками (CONTRADICTION/MISSING_REQUIRED)
-├── document
+├── auth        — выдача JWT (RSA/RS256): register/login, TokenService, локальный JwtDecoder
+├── tenant      — TenantContext, резолвер @TenantId, slug, фильтр извлечения tenant из JWT
+├── security    — конфигурация JWT resource server + PasswordEncoder, rate limiting (ratelimit)
+├── user        — AppUser + репозиторий
+├── document    — метаданные документов (Document, статусы), REST, blob-хранилище (blob)
 │   └── processing — PDF-пайплайн: TextExtractor (PDFBox + OCR) → ContractChunker → embed → store
-└── config     — AsyncConfig (пул фоновой обработки)
+├── chunk       — document_chunks: нативный pgvector-доступ (изоляция + поиск)
+├── retrieval   — двухэтапный семантический поиск (pgvector → реранкер)
+├── risk        — Risk Scanner: ChatModel + structured output → document_risks
+├── policy      — библиотека политик компании (pgvector)
+├── compliance  — Compliance Checker: сверка договора с политиками (CONTRADICTION/MISSING_REQUIRED)
+├── negotiation — предложения ИИ по правкам рискованных пунктов (suggestions)
+├── preview     — публичное синхронное превью PDF (без сохранения в БД)
+├── profile     — генеративный аудит-профиль документа
+├── ai          — адаптеры моделей (PaddingEmbeddingModel для локального профиля Ollama)
+└── config      — AsyncConfig (пул фоновой обработки)
 ```
 
 ## Пайплайн обработки документа
