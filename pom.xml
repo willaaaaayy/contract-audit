@@ -132,7 +132,7 @@
         <dependency>
             <groupId>net.sourceforge.tess4j</groupId>
             <artifactId>tess4j</artifactId>
-            <version>5.13.0</version>
+            <version>5.19.0</version>
         </dependency>
 
         <!-- S3-совместимое хранилище blob (AWS S3 / MinIO). Активируется storage.blob.type=s3. -->
