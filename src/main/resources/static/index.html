@@ -270,6 +270,10 @@
     .banner.warn { background: color-mix(in srgb, var(--warn) 12%, var(--surface)); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border)); }
     .banner.err { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); }
 
+    /* main получает программный фокус при смене маршрута (tabindex="-1") — рамка не нужна,
+       Tab'ом до него не добраться */
+    #view:focus { outline: none; }
+
     @media (max-width: 760px) { .stats, .feat-grid { grid-template-columns: repeat(2, 1fr); } .grid-2 { grid-template-columns: 1fr; } .brand small { display: none; } .who b { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
     @media (max-width: 440px) { .stats, .feat-grid { grid-template-columns: 1fr; } .who span.lbl { display: none; } }
   </style>
@@ -277,7 +281,7 @@
 <body>
   <header>
     <div class="shell nav">
-      <div class="brand" onclick="go('/')">
+      <div class="brand" onclick="go('/')" role="button" tabindex="0" aria-label="На главную">
         <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg></span>
         <span>Contract&nbsp;Audit<small>AI-аудит B2B-договоров</small></span>
       </div>
@@ -285,7 +289,8 @@
     </div>
   </header>
 
-  <main id="view"></main>
+  <!-- tabindex="-1": route() переносит фокус на новый экран (скринридеры узнают о смене маршрута) -->
+  <main id="view" tabindex="-1"></main>
 
   <div class="toast" id="toast"><svg id="toastIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg">—</span></div>
 
@@ -387,11 +392,41 @@ window.addEventListener('hashchange', route);
 function route(){
   const path = (location.hash || '#/').slice(1);
   renderNav();
+  renderRoute(path);
+  const view = el('view');
+  if (view) view.focus({ preventScroll: false });   // фокус на новый экран (доступность)
+}
+function renderRoute(path){
   if (path === '/login') return renderAuth();
   if (path.startsWith('/app/doc/')) { if (!AUTH.authed) return go('/login'); return renderDocPage(decodeURIComponent(path.slice('/app/doc/'.length))); }
   if (path.startsWith('/app')) { if (!AUTH.authed) return go('/login'); return renderApp(); }
-  return renderLanding();
+  if (path === '/' || path === '') return renderLanding();
+  return renderNotFound();   // неизвестный маршрут — явный 404, а не тихий откат на лендинг
 }
+
+function renderNotFound(){
+  el('view').innerHTML = `
+  <div class="shell">
+    <section class="hero">
+      <h1>404</h1>
+      <p class="lede">Такой страницы нет. Возможно, ссылка устарела или в адресе опечатка.</p>
+      <div class="cta-row">
+        <button class="btn btn-primary" onclick="go('/')">${I.arrowLeft} На главную</button>
+        ${AUTH.authed ? `<button class="btn btn-ghost" onclick="go('/app')">В кабинет</button>` : ''}
+      </div>
+    </section>
+  </div>
+  ${footer()}`;
+}
+
+/* Клавиатурная активация для кликабельных не-кнопок (role="button" на div): Enter/Space → click */
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target instanceof Element
+      && e.target.matches('[role="button"]:not(button):not(a)')) {
+    e.preventDefault();
+    e.target.click();
+  }
+});
 
 function renderNav(){
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -633,7 +668,7 @@ function renderDocList(){
   const list = el('docList'); if (!list) return;
   if (!APP.docs.length){ list.innerHTML = '<div class="empty">Пока нет документов. Загрузите первый PDF.</div>'; return; }
   list.innerHTML = APP.docs.map(d => `
-    <div class="doc ${APP.selected===d.id?'active':''}" onclick="selectDoc('${d.id}')">
+    <div class="doc ${APP.selected===d.id?'active':''}" onclick="selectDoc('${d.id}')" role="button" tabindex="0" aria-label="Открыть документ ${esc(d.filename||'без имени')}">
       <span class="fi">${I.file}</span>
       <div class="meta"><div class="name">${esc(d.filename||'без имени')}</div><div class="sub">${new Date(d.createdAt).toLocaleString('ru-RU')}</div></div>
       ${statusBadge(d.status)}
@@ -799,7 +834,7 @@ function analyzePrompt(){
 function risksBlock(a){
   const risks = a.risks||[];
   const body = risks.length ? risks.map(r=>{
-    let attr=''; if (r.quote){ QUOTES.push(r.quote); attr=` data-q="${QUOTES.length-1}" style="cursor:pointer" title="Показать в тексте"`; }
+    let attr=''; if (r.quote){ QUOTES.push(r.quote); attr=` data-q="${QUOTES.length-1}" style="cursor:pointer" title="Показать в тексте" role="button" tabindex="0"`; }
     return `<div class="item"${attr}><div class="item-top"><span class="item-type">${esc(r.riskType||'Риск')}</span>${severityBadge(r.severity)}${r.clauseRef?`<span class="ref-badge">п. ${esc(r.clauseRef)}</span>`:''}</div>${r.quote?`<div class="quote">«${esc(r.quote)}»</div>`:''}<div class="explain">${esc(r.explanation||'')}</div></div>`;
   }).join('') : `<div class="empty">${a.analyzed?'Явных рисков не найдено.':'Запустите анализ, чтобы найти риски.'}</div>`;
   return card(I.shield+' Риски', risks.length, body);
@@ -807,7 +842,7 @@ function risksBlock(a){
 function complianceBlock(a){
   const f = a.findings||[];
   const body = f.length ? f.map(x=>{
-    let attr=''; if (x.quote){ QUOTES.push(x.quote); attr=` data-q="${QUOTES.length-1}" style="cursor:pointer" title="Показать в тексте"`; }
+    let attr=''; if (x.quote){ QUOTES.push(x.quote); attr=` data-q="${QUOTES.length-1}" style="cursor:pointer" title="Показать в тексте" role="button" tabindex="0"`; }
     return `<div class="item"${attr}><div class="item-top">${findingBadge(x.type)}${severityBadge(x.severity)}${x.clauseRef?`<span class="ref-badge">п. ${esc(x.clauseRef)}</span>`:''}</div>${x.quote?`<div class="quote">«${esc(x.quote)}»</div>`:''}<div class="explain">${esc(x.explanation||'')}</div></div>`;
   }).join('') : `<div class="empty">${a.analyzed?'Нарушений политик не найдено.':'Будет доступно после анализа.'}</div>`;
   return card(I.check2+' Комплаенс', f.length, body);
