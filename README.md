@@ -168,9 +168,10 @@ OCR требует установленного Tesseract; `ocr.library-path` п
 ✅ Authn-сервис выдачи JWT — RS256, register/login через workspace-slug, локальная валидация
 ✅ Прод-харднинг — RSA-ключи из конфигурации (PEM), invite-флоу (ADMIN-only),
    rate limiting auth, Actuator/Micrometer метрики, blob в S3/MinIO
-✅ Тесты (43): изоляция (leak/honeypot + recall@k), unit chunker, e2e (upload→process→search),
+✅ Тесты (61): изоляция (leak/honeypot + recall@k), unit chunker, e2e (upload→process→search),
    Risk Scanner, Compliance, OCR (реальный Tesseract), bge-реранкер, claim/поллер, auth (JWT),
-   invite (ADMIN-гейт), rate limit (429), метрики, S3 (MinIO)
+   invite (ADMIN-гейт), rate limit (429, auth + preview), метрики, S3 (MinIO), аудит-профиль,
+   семантический поиск (API), REST документов, негативные сценарии (400/401/404 и конверт ошибок)
 ```
 
 **Все 4 ключевые функции MVP закрыты:** AI Risk Scanner · Compliance Checker ·
