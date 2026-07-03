@@ -1,6 +1,7 @@
 package com.contractaudit.risk;
 
 import com.contractaudit.chunk.DocumentChunkRepository;
+import com.contractaudit.common.error.NotFoundException;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -51,7 +52,7 @@ public class RiskScanService {
     public List<DocumentRisk> scan(UUID documentId) {
         List<String> texts = chunkRepository.findChunkTextsByDocument(documentId);
         if (texts.isEmpty()) {
-            throw new IllegalStateException(
+            throw new NotFoundException(
                     "У документа %s нет чанков — он не обработан или не найден".formatted(documentId));
         }
 

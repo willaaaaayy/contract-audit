@@ -1,5 +1,6 @@
 package com.contractaudit.negotiation;
 
+import com.contractaudit.common.error.ConflictException;
 import com.contractaudit.risk.DocumentRisk;
 import com.contractaudit.risk.DocumentRiskRepository;
 import com.contractaudit.risk.RiskSeverity;
@@ -52,7 +53,7 @@ public class NegotiationService {
     public List<ClauseSuggestion> suggest(UUID documentId, boolean includeAll) {
         List<DocumentRisk> risks = riskRepository.findByDocumentId(documentId);
         if (risks.isEmpty()) {
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "У документа %s нет рисков — сначала запустите Risk Scanner".formatted(documentId));
         }
 

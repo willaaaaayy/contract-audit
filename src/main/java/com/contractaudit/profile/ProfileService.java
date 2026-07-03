@@ -1,6 +1,7 @@
 package com.contractaudit.profile;
 
 import com.contractaudit.chunk.DocumentChunkRepository;
+import com.contractaudit.common.error.NotFoundException;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -31,7 +32,7 @@ public class ProfileService {
     public AuditProfile profile(UUID documentId) {
         List<String> texts = chunkRepository.findChunkTextsByDocument(documentId);
         if (texts.isEmpty()) {
-            throw new IllegalStateException(
+            throw new NotFoundException(
                     "У документа %s нет чанков — он не обработан или не найден".formatted(documentId));
         }
 

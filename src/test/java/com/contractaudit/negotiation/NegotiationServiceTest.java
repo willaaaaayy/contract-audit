@@ -1,5 +1,6 @@
 package com.contractaudit.negotiation;
 
+import com.contractaudit.common.error.ConflictException;
 import com.contractaudit.risk.DocumentRisk;
 import com.contractaudit.risk.DocumentRiskRepository;
 import com.contractaudit.risk.RiskSeverity;
@@ -53,7 +54,7 @@ class NegotiationServiceTest extends AbstractPgvectorTest {
         // Изоляция: другой арендатор не видит рисков → нечего предлагать (ошибка «нет рисков»).
         UUID other = createTenant("other");
         assertThatThrownBy(() -> withTenant(other, () -> negotiationService.suggest(documentId, false)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ConflictException.class);
     }
 
     @Test
@@ -62,7 +63,7 @@ class NegotiationServiceTest extends AbstractPgvectorTest {
         UUID documentId = createDocument(tenant, "no-risks.pdf");
 
         assertThatThrownBy(() -> withTenant(tenant, () -> negotiationService.suggest(documentId, false)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ConflictException.class);
     }
 
     @TestConfiguration

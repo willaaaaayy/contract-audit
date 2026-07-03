@@ -2,6 +2,7 @@ package com.contractaudit.compliance;
 
 import com.contractaudit.chunk.ChunkMatch;
 import com.contractaudit.chunk.DocumentChunkRepository;
+import com.contractaudit.common.error.ConflictException;
 import com.contractaudit.policy.PolicyForCheck;
 import com.contractaudit.policy.PolicyRepository;
 import com.contractaudit.risk.RiskSeverity;
@@ -62,7 +63,7 @@ public class ComplianceCheckService {
     public List<ComplianceFinding> check(UUID documentId) {
         List<PolicyForCheck> policies = policyRepository.findAllForCheck();
         if (policies.isEmpty()) {
-            throw new IllegalStateException("У арендатора нет политик для сверки");
+            throw new ConflictException("У арендатора нет политик для сверки");
         }
 
         List<ComplianceFinding> findings = new ArrayList<>();

@@ -57,7 +57,7 @@ class RiskScanServiceTest extends AbstractPgvectorTest {
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () -> withTenant(tenant, () -> riskScanService.scan(documentId)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(com.contractaudit.common.error.NotFoundException.class);
     }
 
     /** Любой ненулевой вектор: Risk Scanner читает только текст чанков, эмбеддинг тут не важен. */
