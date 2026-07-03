@@ -1,6 +1,7 @@
 package com.contractaudit.document;
 
 import com.contractaudit.chunk.DocumentChunkRepository;
+import com.contractaudit.common.upload.UploadValidator;
 import com.contractaudit.document.processing.DocumentProcessingService;
 import com.contractaudit.tenant.TenantContext;
 import org.springframework.http.HttpStatus;
@@ -31,13 +32,16 @@ public class DocumentController {
     private final DocumentService documentService;
     private final DocumentProcessingService processingService;
     private final DocumentChunkRepository chunkRepository;
+    private final UploadValidator uploadValidator;
 
     public DocumentController(DocumentService documentService,
                               DocumentProcessingService processingService,
-                              DocumentChunkRepository chunkRepository) {
+                              DocumentChunkRepository chunkRepository,
+                              UploadValidator uploadValidator) {
         this.documentService = documentService;
         this.processingService = processingService;
         this.chunkRepository = chunkRepository;
+        this.uploadValidator = uploadValidator;
     }
 
     /**
@@ -49,6 +53,7 @@ public class DocumentController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public DocumentResponse upload(@RequestParam("file") MultipartFile file,
                                    @AuthenticationPrincipal Jwt jwt) throws IOException {
+        uploadValidator.validatePdf(file);
         UUID uploadedBy = UUID.fromString(jwt.getSubject());
         // Документ + blob коммитятся здесь → дальше он долговечен (поллер заберёт даже при краше).
         Document document = documentService.register(file.getOriginalFilename(), uploadedBy, file.getBytes());

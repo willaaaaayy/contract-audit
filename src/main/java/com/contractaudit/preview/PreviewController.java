@@ -1,5 +1,6 @@
 package com.contractaudit.preview;
 
+import com.contractaudit.common.upload.UploadValidator;
 import com.contractaudit.document.processing.ContractChunker;
 import com.contractaudit.document.processing.TextChunk;
 import com.contractaudit.document.processing.TextExtractor;
@@ -26,17 +27,21 @@ public class PreviewController {
     private final TextExtractor textExtractor;
     private final ContractChunker chunker;
     private final KeyDataExtractor keyDataExtractor;
+    private final UploadValidator uploadValidator;
 
     public PreviewController(TextExtractor textExtractor,
                             ContractChunker chunker,
-                            KeyDataExtractor keyDataExtractor) {
+                            KeyDataExtractor keyDataExtractor,
+                            UploadValidator uploadValidator) {
         this.textExtractor = textExtractor;
         this.chunker = chunker;
         this.keyDataExtractor = keyDataExtractor;
+        this.uploadValidator = uploadValidator;
     }
 
     @PostMapping
     public PreviewResponse preview(@RequestParam("file") MultipartFile file) throws IOException {
+        uploadValidator.validatePdf(file);
         String filename = file.getOriginalFilename();
         String text = textExtractor.extract(file.getBytes(), filename);
 

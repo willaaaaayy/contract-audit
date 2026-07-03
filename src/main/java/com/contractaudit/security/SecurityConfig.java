@@ -44,7 +44,8 @@ public class SecurityConfig {
                 .requestMatchers("/", "/index.html", "/favicon.ico", "/api/preview").permitAll()
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
-            // rate limit для /api/auth/** — до аутентификации, отсекаем перебор раньше
+            // rate limit для /api/auth/** и публичного /api/preview — до аутентификации,
+            // отсекаем перебор и злоупотребление синхронным OCR раньше
             .addFilterBefore(new RateLimitFilter(rateLimiter, rateLimitProperties), BearerTokenAuthenticationFilter.class)
             // tenant вытаскиваем после того, как JWT провалидирован и лежит в SecurityContext
             .addFilterAfter(tenantContextFilter, BasicAuthenticationFilter.class);
