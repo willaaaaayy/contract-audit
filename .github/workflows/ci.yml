@@ -35,7 +35,7 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Тот же образ, что и в docker-compose.yml. Отдельным шагом (не services:),
       # потому что GH-services не умеют передавать command, а minio/minio его требует.
@@ -77,7 +77,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
