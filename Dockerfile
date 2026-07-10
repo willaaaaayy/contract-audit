@@ -1,5 +1,5 @@
 # --- Сборка ---
-FROM maven:3.9.9-eclipse-temurin-21 AS build
+FROM maven:3.9.15-eclipse-temurin-26 AS build
 WORKDIR /app
 # Сначала только pom + wrapper — слой зависимостей кэшируется отдельно от кода
 COPY pom.xml mvnw ./
