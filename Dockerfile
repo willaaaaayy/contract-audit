@@ -9,7 +9,7 @@ COPY src src
 RUN ./mvnw -q -B -DskipTests package
 
 # --- Рантайм ---
-FROM eclipse-temurin:21-jre-noble
+FROM eclipse-temurin:25-jre-noble
 WORKDIR /app
 
 # Tesseract для OCR сканов (см. CompositeTextExtractor), eng+rus языки.
